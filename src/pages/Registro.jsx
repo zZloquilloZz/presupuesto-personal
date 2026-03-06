@@ -2,7 +2,7 @@
 // Soporta gastos simples, recurrentes, y compras a cuotas.
 // Las cuotas crean automaticamente la entrada en Tarjetas y gastos mensuales recurrentes.
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { CATEGORIAS, TARJETAS } from "../constants";
 import { fmt, uid, fechaLegible } from "../utils";
@@ -47,13 +47,7 @@ export default function Registro() {
 
   const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: null })); };
 
-  // Aplicar recurrentes al mes actual al montar
-  useEffect(() => {
-    if (state.gastosRecurrentes.length === 0) return;
-    const ahora  = new Date();
-    const mesKey = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}`;
-    dispatch({ type:"APLICAR_RECURRENTES", mesKey, fecha: HOY });
-  }, []);
+
 
   // Tarjeta activa si el metodo es bcp o amex
   const tarjetaActiva = form.metodo === "bcp" ? TARJETAS.BCP : form.metodo === "amex" ? TARJETAS.AMEX : null;

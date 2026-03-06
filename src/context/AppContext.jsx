@@ -129,6 +129,28 @@ export function AppProvider({ children }) {
           config: config || INITIAL_STATE.config,
         },
       });
+
+      // Aplicar recurrentes del mes actual UNA SOLA VEZ tras cargar datos
+      if (gastosRecurrentes.length > 0) {
+        const ahora  = new Date();
+        const mesKey = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}`;
+        const fecha  = ahora.toISOString().slice(0,10);
+        const yaAplicados = new Set(
+          gastos.filter(g => g.recurrenteOrigen && g.mesKey === mesKey).map(g => g.recurrenteOrigen)
+        );
+        const pendientes = gastosRecurrentes.filter(r => !yaAplicados.has(r.id));
+        if (pendientes.length > 0) {
+          Promise.all(
+            pendientes.map(r => db.gastos.add(user.id, {
+              descripcion: r.descripcion, categoria: r.categoria,
+              monto: r.monto, metodo: r.metodo, fecha,
+              notas: r.notas || "", recurrente_origen: r.id, mes_key: mesKey,
+            }))
+          ).then(nuevos => {
+            localDispatch({ type: "APLICAR_RECURRENTES", nuevos });
+          }).catch(console.error);
+        }
+      }
     }).catch(console.error);
   }, [user?.id]);
 
@@ -173,22 +195,9 @@ export function AppProvider({ children }) {
           await db.recurrentes.delete(action.id);
           break;
 
-        case "APLICAR_RECURRENTES": {
-          // Detectar recurrentes no aplicados este mes y guardarlos
-          const mesKey = action.mesKey;
-          const yaAplicados = new Set(state.gastos.filter(g => g.recurrenteOrigen && g.mesKey === mesKey).map(g => g.recurrenteOrigen));
-          const pendientes = state.gastosRecurrentes.filter(r => !yaAplicados.has(r.id));
-          if (!pendientes.length) break;
-          const nuevos = await Promise.all(
-            pendientes.map(r => db.gastos.add(user.id, {
-              descripcion: r.descripcion, categoria: r.categoria,
-              monto: r.monto, metodo: r.metodo, fecha: action.fecha,
-              notas: r.notas || "", recurrente_origen: r.id, mes_key: mesKey,
-            }))
-          );
-          localDispatch({ type: "APLICAR_RECURRENTES", nuevos });
+        case "APLICAR_RECURRENTES":
+          // Ya manejado en el useEffect de hidratacion (AppContext), no hacer nada aqui
           break;
-        }
 
         case "SET_PRESUPUESTO":
           await db.presupuestos.set(user.id, action.categoria, action.monto);
