@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { id:"presupuesto", label:"Presupuesto", sub:"vs Real",              icon:"PRE", color:"var(--yellow)" },
   { id:"tarjetas",    label:"Tarjetas",    sub:"BCP y AMEX",           icon:"TRJ", color:"var(--pink)"   },
   { id:"ingresos",    label:"Ingresos",    sub:"Sueldo y extras",      icon:"ING", color:"var(--lime)"   },
-  { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"var(--red)"    },
+  { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"#F87171"    },
 ];
 
 export default function Sidebar({ activePage, onNavigate, onLogout, userEmail }) {
@@ -17,26 +17,27 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
       <aside style={{
         width: 215,
         minWidth: 215,
-        background: "#0A0C10",
+        backgroundColor: "#0A0C10",
         borderRight: "1px solid #1E2530",
         display: "flex", flexDirection: "column",
         position: "fixed", top: 0, left: 0,
-        height: "100vh", zIndex: 50,
+        height: "100vh", zIndex: 100,
         overflow: "hidden",
         boxSizing: "border-box",
+        isolation: "isolate",
       }}>
         {/* Logo */}
-        <div style={{ padding: "22px 18px 16px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ padding: "22px 18px 16px", borderBottom: "1px solid #1E2530" }}>
           <div style={{
-            fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 700,
-            letterSpacing: "0.2em", color: "var(--text-ghost)",
+            fontFamily: "Syne, sans-serif", fontSize: 9, fontWeight: 700,
+            letterSpacing: "0.2em", color: "#374151",
             textTransform: "uppercase", marginBottom: 4,
           }}>Dashboard</div>
           <div style={{
-            fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 800,
-            color: "var(--text-primary)", lineHeight: 1.25,
+            fontFamily: "Syne, sans-serif", fontSize: 15, fontWeight: 800,
+            color: "#F1F5F9", lineHeight: 1.25,
           }}>Presupuesto<br/>Personal</div>
-          <div style={{ marginTop: 7, fontSize: 9, color: "var(--text-ghost)", fontFamily: "var(--font-mono)" }}>
+          <div style={{ marginTop: 7, fontSize: 9, color: "#374151", fontFamily: "DM Mono, monospace" }}>
             {new Date().toLocaleDateString("es-PE", { day:"2-digit", month:"short", year:"numeric" })}
           </div>
         </div>
@@ -51,31 +52,31 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 10px",
-                  background: active ? `color-mix(in srgb, ${item.color} 12%, transparent)` : "transparent",
-                  border: active ? `1px solid color-mix(in srgb, ${item.color} 35%, transparent)` : "1px solid transparent",
-                  borderRadius: "var(--radius-lg)",
+                  background: active ? "#161B24" : "transparent",
+                  border: active ? `1px solid #2D3748` : "1px solid transparent",
+                  borderRadius: "11px",
                   cursor: "pointer", width: "100%", textAlign: "left",
                   transition: "all .15s",
                 }}
-                onMouseOver={e => { if(!active) e.currentTarget.style.background = "var(--bg-input)"; }}
+                onMouseOver={e => { if(!active) e.currentTarget.style.background = "#111318"; }}
                 onMouseOut={e  => { if(!active) e.currentTarget.style.background = "transparent"; }}
               >
                 <div style={{
-                  width: 30, height: 30, borderRadius: "var(--radius-sm)",
-                  background: active ? `color-mix(in srgb, ${item.color} 18%, transparent)` : "var(--bg-input)",
-                  border: `1px solid ${active ? `color-mix(in srgb, ${item.color} 40%, transparent)` : "var(--border)"}`,
+                  width: 30, height: 30, borderRadius: "6px",
+                  background: active ? "#1A2030" : "#111318",
+                  border: active ? `1px solid ${item.color}44` : "1px solid #1E2530",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 8, fontWeight: 700,
-                  color: active ? item.color : "var(--text-dim)",
-                  flexShrink: 0, fontFamily: "var(--font-sans)",
+                  color: active ? item.color : "#475569",
+                  flexShrink: 0, fontFamily: "Syne, sans-serif",
                 }}>{item.icon}</div>
 
                 <div>
                   <div style={{
-                    fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700,
-                    color: active ? item.color : "var(--text-muted)",
+                    fontFamily: "Syne, sans-serif", fontSize: 11, fontWeight: 700,
+                    color: active ? item.color : "#64748B",
                   }}>{item.label}</div>
-                  <div style={{ fontSize: 9, color: "var(--text-ghost)", marginTop: 1 }}>{item.sub}</div>
+                  <div style={{ fontSize: 9, color: "#374151", marginTop: 1 }}>{item.sub}</div>
                 </div>
 
                 {active && (
@@ -92,21 +93,21 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
         {/* Usuario + logout */}
         <div style={{ padding:"11px 16px", borderTop:"1px solid var(--border)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
           <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:2 }}>Sesion activa</div>
-            <div style={{ fontSize:9, color:"var(--text-dim)", fontFamily:"var(--font-mono)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{userEmail}</div>
+            <div style={{ fontSize:8, color:"#374151", fontFamily:"Syne, sans-serif", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:2 }}>Sesion activa</div>
+            <div style={{ fontSize:9, color:"#475569", fontFamily:"DM Mono, monospace", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:120 }}>{userEmail}</div>
           </div>
           <button onClick={onLogout} style={{
-            background:"var(--red-bg)", border:"1px solid var(--red-border)",
-            borderRadius:"var(--radius-sm)", color:"var(--red)",
-            fontFamily:"var(--font-sans)", fontSize:8, fontWeight:700,
+            background:"#1E0A0A", border:"1px solid var(--red-border)",
+            borderRadius:"6px", color:"#F87171",
+            fontFamily:"Syne, sans-serif", fontSize:8, fontWeight:700,
             padding:"5px 8px", cursor:"pointer", letterSpacing:"0.06em", textTransform:"uppercase", flexShrink:0,
           }}>Salir</button>
         </div>
 
         {/* Footer AFP */}
-        <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 8, color: "var(--text-ghost)", fontFamily: "var(--font-sans)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>AFP Integra</div>
-          <div style={{ fontSize: 9, color: "var(--text-dim)", fontFamily: "var(--font-mono)" }}>11.37% descuento en boleta</div>
+        <div style={{ padding: "10px 16px", borderTop: "1px solid #1E2530" }}>
+          <div style={{ fontSize: 8, color: "#374151", fontFamily: "Syne, sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>AFP Integra</div>
+          <div style={{ fontSize: 9, color: "#475569", fontFamily: "DM Mono, monospace" }}>11.37% descuento en boleta</div>
         </div>
       </aside>
     </>
