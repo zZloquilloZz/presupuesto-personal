@@ -252,9 +252,9 @@ export const db = {
         .from("config")
         .select("*")
         .eq("user_id", userId)
-        .single();
-      if (error?.code === "PGRST116") return null; // sin fila aun
+        .maybeSingle();
       check(error);
+      if (!data) return null;
       return { haberBasico: data.haber_basico, diaDeposito: data.dia_deposito };
     },
 

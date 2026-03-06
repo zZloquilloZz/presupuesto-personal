@@ -50,7 +50,7 @@ function AppShell() {
     <AppProvider>
       <div className="app-layout">
         <Sidebar activePage={page} onNavigate={setPage} onLogout={logout} userEmail={user.email}/>
-        <main className="main-content">
+        <main style={{ marginLeft: 215, flex: 1, minHeight: "100vh", overflowY: "auto" }}>
           <PageComponent/>
         </main>
       </div>

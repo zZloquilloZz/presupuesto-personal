@@ -15,13 +15,15 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
   return (
     <>
       <aside style={{
-        width: "var(--sidebar-w)",
-        background: "var(--bg-base)",
-        borderRight: "1px solid var(--border)",
+        width: 215,
+        minWidth: 215,
+        background: "#0A0C10",
+        borderRight: "1px solid #1E2530",
         display: "flex", flexDirection: "column",
         position: "fixed", top: 0, left: 0,
         height: "100vh", zIndex: 50,
         overflow: "hidden",
+        boxSizing: "border-box",
       }}>
         {/* Logo */}
         <div style={{ padding: "22px 18px 16px", borderBottom: "1px solid var(--border)" }}>
