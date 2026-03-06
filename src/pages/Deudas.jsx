@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { TARJETAS, MESES } from "../constants";
+import { TARJETAS } from "../constants";
 import { fmt, diasPara, uid } from "../utils";
 import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field, EmptyState } from "../components/UI";
 

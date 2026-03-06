@@ -54,10 +54,6 @@ export const CATEGORIAS = [
   { id: "otros",        label: "Otros",           color: "#6B7280", emoji: "📦" },
 ];
 
-// ── GASTOS FIJOS ─────────────────────────────────────
-// Lista vacia por defecto — el usuario agrega los suyos desde Dashboard
-// Estructura de cada item: { id, descripcion, monto, dia }
-export const GASTOS_FIJOS_DEFAULT = [];
 
 // ── EMAILJS ──────────────────────────────────────────
 export const EMAILJS = {

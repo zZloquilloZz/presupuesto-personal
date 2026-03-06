@@ -1,7 +1,7 @@
 // AppContext.jsx — estado global conectado a Supabase
 // dispatch() actualiza UI inmediatamente Y persiste en Supabase en segundo plano
 
-import { createContext, useContext, useReducer, useEffect, useState } from "react";
+import { createContext, useContext, useReducer, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { db } from "../db";
 import { SUELDO } from "../constants";
@@ -102,12 +102,10 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const { user } = useAuth();
   const [state, localDispatch] = useReducer(reducer, INITIAL_STATE);
-  const [dbLoading, setDbLoading] = useState(false);
 
   // Cargar datos al iniciar sesion
   useEffect(() => {
     if (!user) { localDispatch({ type: "HYDRATE", payload: INITIAL_STATE }); return; }
-    setDbLoading(true);
     Promise.all([
       db.gastos.getAll(user.id),
       db.gastosFijos.getAll(user.id),
@@ -131,7 +129,7 @@ export function AppProvider({ children }) {
           config: config || INITIAL_STATE.config,
         },
       });
-    }).catch(console.error).finally(() => setDbLoading(false));
+    }).catch(console.error);
   }, [user?.id]);
 
   // dispatch inteligente: actualiza UI + persiste en Supabase
@@ -248,7 +246,7 @@ export function AppProvider({ children }) {
   };
 
   return (
-    <AppContext.Provider value={{ state, dispatch, dbLoading }}>
+    <AppContext.Provider value={{ state, dispatch }}>
       {children}
     </AppContext.Provider>
   );
