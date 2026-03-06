@@ -48,9 +48,9 @@ function AppShell() {
 
   return (
     <AppProvider>
-      <div style={{ display:"flex", minHeight:"100vh", background:"var(--bg-base)" }}>
+      <div className="app-layout">
         <Sidebar activePage={page} onNavigate={setPage} onLogout={logout} userEmail={user.email}/>
-        <main style={{ flex:1, marginLeft:"var(--sidebar-w)", minHeight:"100vh", overflowY:"auto" }}>
+        <main className="main-content">
           <PageComponent/>
         </main>
       </div>
