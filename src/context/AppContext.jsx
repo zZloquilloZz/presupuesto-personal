@@ -277,6 +277,17 @@ export function useIngresoMes(mesIdx, anio) {
   return state.historialIngresos.find(h => h.mesIdx === m && h.anio === a) ?? null;
 }
 
+// Ingreso disponible = el del mes anterior (el que ya fue depositado)
+// Ej: en marzo se usa el ingreso de febrero
+export function useIngresoDisponible() {
+  const { state } = useApp();
+  const hoy = new Date();
+  let m = hoy.getMonth() - 1;
+  let a = hoy.getFullYear();
+  if (m < 0) { m = 11; a -= 1; }
+  return state.historialIngresos.find(h => h.mesIdx === m && h.anio === a) ?? null;
+}
+
 export function useTotalesMes(mesIdx, anio) {
   const gastos  = useGastosMes(mesIdx, anio);
   const ingreso = useIngresoMes(mesIdx, anio);

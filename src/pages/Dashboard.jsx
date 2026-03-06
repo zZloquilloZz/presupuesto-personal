@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useApp, useTotalesMes, useGastosMes } from "../context/AppContext";
+import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
 import { CATEGORIAS, TARJETAS, EMAILJS, MESES } from "../constants";
 import { fmt, diasPara, periodoActual, agruparPorCategoria } from "../utils";
 import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader, Badge, EmptyState } from "../components/UI";
@@ -21,8 +21,8 @@ export default function Dashboard() {
   const { state, dispatch } = useApp();
   const [showFijosEditor, setShowFijosEditor] = useState(false);
   const [fijoForm, setFijoForm] = useState({ descripcion:"", monto:"", dia:"" });
-  const totales   = useTotalesMes();
   const gastosMes = useGastosMes();
+  const ingresoAnterior = useIngresoDisponible();
   const periodo   = periodoActual();
 
   // Carga EmailJS una sola vez al montar
@@ -46,16 +46,14 @@ export default function Dashboard() {
   const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
   const totalCredito = gastosMes.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
   const totalDebito  = gastosMes.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
-  const netoMes = totales.neto; // neto del mes actual (0 si no registrado)
-  const promedioIngresos = state.historialIngresos.length > 0
-    ? state.historialIngresos.reduce((s, h) => s + h.neto, 0) / state.historialIngresos.length
-    : 0;
-  // Usar promedio si no hay registro del mes actual
-  const ingresoBase  = netoMes > 0 ? netoMes : promedioIngresos;
-  const usandoPromedio = netoMes === 0 && promedioIngresos > 0;
-  const saldo        = ingresoBase - totalGastos - totalFijos;
-  const tasaAhorro   = ingresoBase > 0 ? (saldo / ingresoBase) * 100 : 0;
-  const hayIngresos  = ingresoBase > 0;
+  // Ingreso disponible = mes anterior (ya depositado)
+  const ingresoBase    = ingresoAnterior?.neto ?? 0;
+  const hayIngresos    = ingresoBase > 0;
+  const saldo          = ingresoBase - totalGastos - totalFijos;
+  const tasaAhorro     = ingresoBase > 0 ? (saldo / ingresoBase) * 100 : 0;
+  // Label para el KPI
+  const hoyRef = new Date();
+  const mesRef = hoyRef.getMonth() === 0 ? 11 : hoyRef.getMonth() - 1;
   const hayGastos    = gastosMes.length > 0;
 
   // Grafico de torta — solo si hay gastos
@@ -185,7 +183,7 @@ export default function Dashboard() {
             valueColor={hayIngresos ? "var(--green)" : "var(--text-ghost)"}
             bg={hayIngresos ? "var(--green-bg)" : "var(--bg-input)"}
             border={hayIngresos ? "var(--green-border)" : "var(--border)"}
-            sub={!hayIngresos ? "→ Ve a Ingresos" : usandoPromedio ? `Promedio ${state.historialIngresos.length} meses` : "Neto AFP Integra"}
+            sub={!hayIngresos ? "→ Ve a Ingresos" : `Ingreso de ${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][mesRef]}`}
             delay={0}
           />
           <KPICard label="Gastos variables"   value={`S/. ${fmt(totalGastos)}`}  valueColor="var(--text-primary)" delay={0.06}/>
