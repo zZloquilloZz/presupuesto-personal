@@ -146,20 +146,28 @@ export function AppProvider({ children }) {
       });
 
       // Aplicar recurrentes del mes actual UNA SOLA VEZ tras cargar datos
+      // Guarda: comparar descripcion+mes para evitar duplicados aunque fallen los IDs
       if (gastosRecurrentes.length > 0) {
         const ahora  = new Date();
         const mesKey = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}`;
         const fecha  = ahora.toISOString().slice(0,10);
-        const yaAplicados = new Set(
-          gastos.filter(g => g.recurrenteOrigen && g.mesKey === mesKey).map(g => g.recurrenteOrigen)
+        // Gastos ya existentes este mes (por descripcion exacta)
+        const gastosEsteMes = new Set(
+          gastos
+            .filter(g => g.fecha && g.fecha.slice(0,7) === mesKey)
+            .map(g => g.descripcion)
         );
-        const pendientes = gastosRecurrentes.filter(r => !yaAplicados.has(r.id));
+        // Solo aplicar recurrentes cuya descripcion NO esté ya en este mes
+        const pendientes = gastosRecurrentes.filter(r => !gastosEsteMes.has(r.descripcion));
         if (pendientes.length > 0) {
           Promise.all(
             pendientes.map(r => db.gastos.add(user.id, {
-              descripcion: r.descripcion, categoria: r.categoria,
-              monto: r.monto, metodo: r.metodo, fecha,
-              notas: r.notas || "", recurrente_origen: r.id, mes_key: mesKey,
+              descripcion: r.descripcion,
+              categoria:   r.categoria,
+              monto:       r.monto,
+              metodo:      r.metodo,
+              fecha,
+              notas:       r.notas || "",
             }))
           ).then(nuevos => {
             localDispatch({ type: "APLICAR_RECURRENTES", nuevos });
