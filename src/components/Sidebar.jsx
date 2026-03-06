@@ -20,7 +20,8 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
         borderRight: "1px solid var(--border)",
         display: "flex", flexDirection: "column",
         position: "fixed", top: 0, left: 0,
-        height: "100vh", zIndex: 20,
+        height: "100vh", zIndex: 50,
+        overflow: "hidden",
       }}>
         {/* Logo */}
         <div style={{ padding: "22px 18px 16px", borderBottom: "1px solid var(--border)" }}>
