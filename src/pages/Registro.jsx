@@ -88,48 +88,41 @@ export default function Registro() {
       dispatch({ type:"UPDATE_GASTO", id: editId, payload: { ...form, monto: parseFloat(form.monto) } });
       setEditId(null);
     } else if (form.esCuota && cuotaPreview) {
-      // ── Compra a cuotas ──────────────────────────────────
+      // ── Compra a cuotas — dispatch atomico ───────────────
       const n          = parseInt(form.totalCuotas);
       const montoTotal = parseFloat(form.monto);
       const cuotaMes   = cuotaPreview.cuota;
       const tarjetaId  = form.metodo; // "bcp" o "amex"
+      const cuotaId    = Date.now().toString(36);
 
-      // 1. Registrar gasto informativo del total (no suma al mes, es referencia)
-      dispatch({ type:"ADD_GASTO", payload: {
-        descripcion: `${form.descripcion} (${n} cuotas)`,
-        categoria:   form.categoria,
-        monto:       cuotaMes, // solo la primera cuota cuenta este mes
-        metodo:      form.metodo,
-        fecha:       form.fecha,
-        notas:       `Compra a ${n} cuotas${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}. Cuota: S/. ${fmt(cuotaMes)}/mes`,
-        esCuota:     true,
-      }});
-
-      // 2. Crear cuota en Tarjetas
-      const cuotasActuales = state.tarjetas?.[tarjetaId]?.cuotasActivas || [];
-      const nuevaCuota = {
-        id:          Date.now().toString(36),
-        desc:        form.descripcion,
-        montoTotal,
-        cuota:       cuotaMes,
-        totalCuotas: n,
-        pagadas:     1, // la primera cuota ya se registró este mes
-        conInteres:  form.conInteres,
-      };
-      dispatch({ type:"UPDATE_TARJETA", tarjeta: tarjetaId, payload: {
-        cuotasActivas: [...cuotasActuales, nuevaCuota],
-      }});
-
-      // 3. Crear gasto recurrente para los meses siguientes (n-1 cuotas restantes)
-      dispatch({ type:"ADD_RECURRENTE", payload: {
-        descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
-        categoria:   form.categoria,
-        monto:       cuotaMes,
-        metodo:      form.metodo,
-        notas:       `Cuota automatica. ${n-1} pagos restantes.`,
-        esCuota:     true,
-        cuotasTotal: n,
-        cuotasPagadas: 1,
+      dispatch({ type: "ADD_CUOTA_COMPRA", payload: {
+        tarjetaId,
+        gasto: {
+          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
+          categoria:   form.categoria,
+          monto:       cuotaMes,
+          metodo:      form.metodo,
+          fecha:       form.fecha,
+          notas:       `Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total compra: S/. ${fmt(montoTotal)}`,
+          esCuota:     true,
+        },
+        cuota: {
+          id:          cuotaId,
+          desc:        form.descripcion,
+          montoTotal,
+          cuota:       cuotaMes,
+          totalCuotas: n,
+          pagadas:     1,
+          conInteres:  form.conInteres,
+        },
+        recurrente: {
+          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
+          categoria:   form.categoria,
+          monto:       cuotaMes,
+          metodo:      form.metodo,
+          notas:       `Cuota automatica. ${n} cuotas totales.`,
+          esCuota:     true,
+        },
       }});
 
     } else {

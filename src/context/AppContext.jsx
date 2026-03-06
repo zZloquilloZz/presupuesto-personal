@@ -89,6 +89,21 @@ function reducer(state, action) {
         },
       };
 
+    // Registra compra a cuotas atomicamente: gasto + cuota en tarjeta + recurrente
+    case "ADD_CUOTA_COMPRA": {
+      const { gasto, tarjetaId, cuota, recurrente } = action.payload;
+      const cuotasActuales = state.tarjetas?.[tarjetaId]?.cuotasActivas || [];
+      return {
+        ...state,
+        gastos: [...state.gastos, gasto],
+        gastosRecurrentes: [...state.gastosRecurrentes, recurrente],
+        tarjetas: {
+          ...state.tarjetas,
+          [tarjetaId]: { cuotasActivas: [...cuotasActuales, cuota] },
+        },
+      };
+    }
+
     case "SET_CONFIG":
       return { ...state, config: { ...state.config, ...action.payload } };
 
@@ -241,6 +256,33 @@ export function AppProvider({ children }) {
           // Recargar para tener IDs frescos
           const tarjetas = await db.cuotas.getAll(user.id);
           localDispatch({ type: "HYDRATE", payload: { ...state, tarjetas } });
+          break;
+        }
+
+        case "ADD_CUOTA_COMPRA": {
+          const { gasto, tarjetaId, cuota, recurrente } = action.payload;
+          // 1. Guardar gasto (primera cuota del mes)
+          const gastoSaved = await db.gastos.add(user.id, {
+            descripcion: gasto.descripcion, categoria: gasto.categoria,
+            monto: gasto.monto, metodo: gasto.metodo, fecha: gasto.fecha,
+            notas: gasto.notas || "", es_cuota: true,
+          });
+          // 2. Guardar recurrente para los meses siguientes
+          const recurrenteSaved = await db.recurrentes.add(user.id, {
+            descripcion: recurrente.descripcion, categoria: recurrente.categoria,
+            monto: recurrente.monto, metodo: recurrente.metodo,
+            notas: recurrente.notas || "", es_cuota: true,
+          });
+          // 3. Guardar cuota en tarjeta
+          const cuotaConId = { ...cuota, id: cuota.id };
+          await db.cuotas.add(user.id, tarjetaId, cuotaConId);
+          // 4. Recargar tarjetas y gastos para tener IDs frescos de Supabase
+          const [tarjetas, gastos, gastosRecurrentes] = await Promise.all([
+            db.cuotas.getAll(user.id),
+            db.gastos.getAll(user.id),
+            db.recurrentes.getAll(user.id),
+          ]);
+          localDispatch({ type: "HYDRATE", payload: { ...state, gastos, gastosRecurrentes, tarjetas } });
           break;
         }
 
