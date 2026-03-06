@@ -20,7 +20,7 @@ const HOY = new Date().toISOString().slice(0, 10);
 const EMPTY_FORM = {
   descripcion:"", categoria:"alimentacion", monto:"",
   metodo:"debito", fecha: HOY, notas:"", recurrente: false,
-  esCuota: false, totalCuotas:"", conInteres: false, cuotaManual:"",
+  esCuota: false, totalCuotas:"", conInteres: false, cuotaManual:"", pagadasYa: "1",
   fechaCompra: HOY, // fecha real de la compra para calcular ciclo
 };
 
@@ -134,7 +134,7 @@ export default function Registro() {
           montoTotal,
           cuota:        cuotaMes,
           totalCuotas:  n,
-          pagadas:      1,
+          pagadas:      parseInt(form.pagadasYa) || 1,
           conInteres:   form.conInteres,
           fechaCompra:  form.fechaCompra,
           mesPrimerPago: ppago.mes,
@@ -425,9 +425,14 @@ export default function Registro() {
                             </div>
                           </div>
 
-                          <Field label="Fecha de compra real">
-                            <input type="date" value={form.fechaCompra} onChange={e=>sf("fechaCompra",e.target.value)}/>
-                          </Field>
+                          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                            <Field label="Fecha de compra real">
+                              <input type="date" value={form.fechaCompra} onChange={e=>sf("fechaCompra",e.target.value)}/>
+                            </Field>
+                            <Field label="Cuotas ya pagadas">
+                              <input type="number" min="0" placeholder="1" value={form.pagadasYa} onChange={e=>sf("pagadasYa",e.target.value)}/>
+                            </Field>
+                          </div>
 
                           {primerPago && (
                             <div style={{ padding:"8px 12px", background:"var(--blue-bg)", border:"1px solid var(--blue-border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--blue)" }}>
@@ -485,8 +490,8 @@ export default function Registro() {
                     <textarea rows={2} placeholder="Descripcion adicional..." value={form.notas} onChange={e=>sf("notas",e.target.value)} style={{ minHeight:50 }}/>
                   </Field>
 
-                  {/* Recurrente — solo gasto simple, no edicion, no cuota */}
-                  {!editId && !form.esCuota && (
+                  {/* Recurrente — solo gasto simple, no edicion, no cuota, no tarjeta */}
+                  {!editId && !form.esCuota && form.metodo !== "bcp" && form.metodo !== "amex" && (
                     <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"10px 12px", background:form.recurrente?"var(--yellow-bg)":"var(--bg-input)", border:`1px solid ${form.recurrente?"var(--yellow-border)":"var(--border)"}`, borderRadius:"var(--radius-md)", transition:"all .15s" }}>
                       <input type="checkbox" checked={form.recurrente} onChange={e=>sf("recurrente",e.target.checked)} style={{ width:14, height:14, accentColor:"var(--yellow)" }}/>
                       <div>
