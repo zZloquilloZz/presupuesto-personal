@@ -188,7 +188,7 @@ export default function Dashboard() {
           />
           <KPICard label="Gastos variables"   value={`S/. ${fmt(totalGastos)}`}  valueColor="var(--text-primary)" delay={0.06}/>
           <KPICard label="Compromisos fijos"  value={`S/. ${fmt(totalFijos)}`}   valueColor="var(--yellow)" bg="var(--yellow-bg)" border="var(--yellow-border)" sub={state.gastosFijos.length > 0 ? `${state.gastosFijos.length} compromisos` : "Sin configurar aun"} delay={0.12}/>
-          <KPICard label="Total egresos"      value={`S/. ${fmt(totalGastos + totalFijos)}`} valueColor={hayIngresos && totalGastos + totalFijos > netoMes ? "var(--red)" : "var(--text-primary)"} delay={0.18}/>
+          <KPICard label="Total egresos"      value={`S/. ${fmt(totalGastos + totalFijos)}`} valueColor={hayIngresos && totalGastos + totalFijos > ingresoBase ? "var(--red)" : "var(--text-primary)"} delay={0.18}/>
           <KPICard
             label="Saldo disponible"
             value={hayIngresos ? `S/. ${fmt(Math.abs(saldo))}` : "—"}
