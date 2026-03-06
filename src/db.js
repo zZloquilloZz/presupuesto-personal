@@ -319,6 +319,7 @@ function normalizeCuota(r) {
     cuota:       r.cuota,
     totalCuotas: r.total_cuotas,
     pagadas:     r.pagadas,
+    conInteres:  r.con_interes ?? false,
   };
 }
 
@@ -329,6 +330,7 @@ function toSnakeCuota(r) {
     cuota:        r.cuota,
     total_cuotas: r.totalCuotas,
     pagadas:      r.pagadas,
+    con_interes:  r.conInteres ?? false,
   };
 }
 

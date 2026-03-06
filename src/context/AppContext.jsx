@@ -261,22 +261,33 @@ export function AppProvider({ children }) {
 
         case "ADD_CUOTA_COMPRA": {
           const { gasto, tarjetaId, cuota, recurrente } = action.payload;
-          // 1. Guardar gasto (primera cuota del mes)
+          // Solo campos que existen en la tabla gastos
           const gastoSaved = await db.gastos.add(user.id, {
-            descripcion: gasto.descripcion, categoria: gasto.categoria,
-            monto: gasto.monto, metodo: gasto.metodo, fecha: gasto.fecha,
-            notas: gasto.notas || "", es_cuota: true,
+            descripcion: gasto.descripcion,
+            categoria:   gasto.categoria,
+            monto:       gasto.monto,
+            metodo:      gasto.metodo,
+            fecha:       gasto.fecha,
+            notas:       gasto.notas || "",
           });
-          // 2. Guardar recurrente para los meses siguientes
+          // Solo campos que existen en gastos_recurrentes
           const recurrenteSaved = await db.recurrentes.add(user.id, {
-            descripcion: recurrente.descripcion, categoria: recurrente.categoria,
-            monto: recurrente.monto, metodo: recurrente.metodo,
-            notas: recurrente.notas || "", es_cuota: true,
+            descripcion: recurrente.descripcion,
+            categoria:   recurrente.categoria,
+            monto:       recurrente.monto,
+            metodo:      recurrente.metodo,
+            notas:       recurrente.notas || "",
           });
-          // 3. Guardar cuota en tarjeta
-          const cuotaConId = { ...cuota, id: cuota.id };
-          await db.cuotas.add(user.id, tarjetaId, cuotaConId);
-          // 4. Recargar tarjetas y gastos para tener IDs frescos de Supabase
+          // Cuota en tarjeta — solo campos del schema
+          await db.cuotas.add(user.id, tarjetaId, {
+            desc:        cuota.desc,
+            montoTotal:  cuota.montoTotal,
+            cuota:       cuota.cuota,
+            totalCuotas: cuota.totalCuotas,
+            pagadas:     cuota.pagadas,
+            conInteres:  cuota.conInteres,
+          });
+          // Recargar todo para tener IDs de Supabase
           const [tarjetas, gastos, gastosRecurrentes] = await Promise.all([
             db.cuotas.getAll(user.id),
             db.gastos.getAll(user.id),
