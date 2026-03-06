@@ -11,17 +11,10 @@ const NAV_ITEMS = [
   { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"var(--red)"    },
 ];
 
-export default function Sidebar({ modulo, setModulo, open, setOpen }) {
+export default function Sidebar({ activePage, onNavigate, onLogout, userEmail }) {
   return (
     <>
-      {/* Overlay mobile */}
-      <div onClick={() => setOpen(false)} style={{
-        display: open ? "block" : "none",
-        position: "fixed", inset: 0,
-        background: "rgba(0,0,0,.65)", zIndex: 40,
-      }}/>
-
-      <aside className={`sidebar${open ? " open" : ""}`} style={{
+      <aside style={{
         width: "var(--sidebar-w)",
         background: "var(--bg-base)",
         borderRight: "1px solid var(--border)",
@@ -48,10 +41,10 @@ export default function Sidebar({ modulo, setModulo, open, setOpen }) {
         {/* Nav */}
         <nav style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:3, overflowY:"auto" }}>
           {NAV_ITEMS.map(item => {
-            const active = modulo === item.id;
+            const active = activePage === item.id;
             return (
               <button key={item.id}
-                onClick={() => { setModulo(item.id); setOpen(false); }}
+                onClick={() => onNavigate(item.id)}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 10px",

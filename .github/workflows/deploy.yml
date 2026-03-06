@@ -27,3 +27,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
+
+# trigger rebuild Fri Mar  6 07:15:37 UTC 2026
