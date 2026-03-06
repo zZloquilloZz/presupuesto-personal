@@ -21,6 +21,7 @@ const EMPTY_FORM = {
   descripcion:"", categoria:"alimentacion", monto:"",
   metodo:"debito", fecha: HOY, notas:"", recurrente: false,
   esCuota: false, totalCuotas:"", conInteres: false, cuotaManual:"",
+  fechaCompra: HOY, // fecha real de la compra para calcular ciclo
 };
 
 // Calcula cuota con TEA: C = P*(TEM*(1+TEM)^n)/((1+TEM)^n-1)
@@ -30,6 +31,16 @@ function calcCuota(monto, n, tea) {
   const tem = Math.pow(1 + tea / 100, 1 / 12) - 1;
   if (tem === 0) return parseFloat((P / n).toFixed(2));
   return parseFloat((P * (tem * Math.pow(1+tem,n)) / (Math.pow(1+tem,n)-1)).toFixed(2));
+}
+
+
+// Calcula en qué mes/año empieza el primer pago según el ciclo de la tarjeta
+function getPrimerPago(fechaCompra, cierreDia) {
+  const [anio, mes, dia] = fechaCompra.split("-").map(Number);
+  let mesPago = dia <= cierreDia ? mes + 1 : mes + 2;
+  let anioPago = anio;
+  if (mesPago > 12) { mesPago -= 12; anioPago += 1; }
+  return { anio: anioPago, mes: mesPago }; // mes 1-indexed
 }
 
 export default function Registro() {
@@ -51,6 +62,12 @@ export default function Registro() {
 
   // Tarjeta activa si el metodo es bcp o amex
   const tarjetaActiva = form.metodo === "bcp" ? TARJETAS.BCP : form.metodo === "amex" ? TARJETAS.AMEX : null;
+
+  // Primer pago según ciclo de facturación
+  const primerPago = (form.esCuota && tarjetaActiva && form.fechaCompra)
+    ? getPrimerPago(form.fechaCompra, tarjetaActiva.cierre)
+    : null;
+  const MESES_LABEL = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
 
   // Preview cuota
   const cuotaPreview = (() => {
@@ -95,32 +112,40 @@ export default function Registro() {
       const tarjetaId  = form.metodo; // "bcp" o "amex"
       const cuotaId    = Date.now().toString(36);
 
+      // Calcular mes de inicio del primer pago según ciclo
+      const ppago = getPrimerPago(form.fechaCompra, tarjetaActiva.cierre);
+      // La fecha del primer gasto es el día de pago de ese mes
+      const fechaPrimerPago = `${ppago.anio}-${String(ppago.mes).padStart(2,"0")}-${String(tarjetaActiva.pagoDia).padStart(2,"0")}`;
+
       dispatch({ type: "ADD_CUOTA_COMPRA", payload: {
         tarjetaId,
         gasto: {
-          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
+          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()} (1/${n})`,
           categoria:   form.categoria,
           monto:       cuotaMes,
           metodo:      form.metodo,
-          fecha:       form.fecha,
-          notas:       `Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total compra: S/. ${fmt(montoTotal)}`,
+          fecha:       fechaPrimerPago,
+          notas:       `Compra: ${form.fechaCompra}. Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}`,
           esCuota:     true,
         },
         cuota: {
-          id:          cuotaId,
-          desc:        form.descripcion,
+          id:           cuotaId,
+          desc:         form.descripcion,
           montoTotal,
-          cuota:       cuotaMes,
-          totalCuotas: n,
-          pagadas:     1,
-          conInteres:  form.conInteres,
+          cuota:        cuotaMes,
+          totalCuotas:  n,
+          pagadas:      1,
+          conInteres:   form.conInteres,
+          fechaCompra:  form.fechaCompra,
+          mesPrimerPago: ppago.mes,
+          anioPrimerPago: ppago.anio,
         },
         recurrente: {
           descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
           categoria:   form.categoria,
           monto:       cuotaMes,
           metodo:      form.metodo,
-          notas:       `Cuota automatica. ${n} cuotas totales.`,
+          notas:       `Cuota automatica. ${n} cuotas totales. Inicio: ${ppago.mes}/${ppago.anio}`,
           esCuota:     true,
         },
       }});
@@ -400,6 +425,17 @@ export default function Registro() {
                             </div>
                           </div>
 
+                          <Field label="Fecha de compra real">
+                            <input type="date" value={form.fechaCompra} onChange={e=>sf("fechaCompra",e.target.value)}/>
+                          </Field>
+
+                          {primerPago && (
+                            <div style={{ padding:"8px 12px", background:"var(--blue-bg)", border:"1px solid var(--blue-border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--blue)" }}>
+                              📅 Primer pago: <strong>{MESES_LABEL[primerPago.mes]} {primerPago.anio}</strong>
+                              {" "}(dia {tarjetaActiva?.pagoDia})
+                            </div>
+                          )}
+
                           {!form.conInteres && (
                             <Field label="Cuota mensual (S/.) — si difiere del calculo automatico">
                               <input type="number" placeholder={cuotaPreview?`Auto: S/. ${fmt(cuotaPreview.sinInt)}`:"0.00"} value={form.cuotaManual} onChange={e=>sf("cuotaManual",e.target.value)}/>
@@ -432,7 +468,10 @@ export default function Registro() {
                                   <span style={{ fontFamily:"var(--font-mono)", fontSize:17, color:tarjetaActiva?.color||"var(--blue)" }}>S/. {fmt(cuotaPreview.cuota)}</span>
                                 </div>
                                 <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"right" }}>
-                                  Se crea recurrente automatico para {form.totalCuotas} meses
+                                  {primerPago
+                                    ? `Pagos: ${MESES_LABEL[primerPago.mes]} ${primerPago.anio} → ${form.totalCuotas} meses`
+                                    : `Se crea recurrente para ${form.totalCuotas} meses`
+                                  }
                                 </div>
                               </div>
                             </div>
