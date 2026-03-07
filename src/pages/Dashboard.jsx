@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
+import { useApp, useGastosMes, useIngresoDisponible, useCuotasMes } from "../context/AppContext";
 import { CATEGORIAS, TARJETAS, EMAILJS, MESES } from "../constants";
 import { fmt, diasPara, periodoActual, agruparPorCategoria } from "../utils";
 import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader, Badge, EmptyState } from "../components/UI";
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [fijoForm, setFijoForm] = useState({ descripcion:"", monto:"", dia:"" });
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
+  const cuotasMes = useCuotasMes(); // cuotas de tarjeta del mes actual
   const periodo   = periodoActual();
 
   // Carga EmailJS una sola vez al montar
@@ -42,7 +43,8 @@ export default function Dashboard() {
   const totalAlertaMonto = alertas.reduce((s,a) => s + a.monto, 0);
 
   // ── Calculos del mes — solo datos reales ──────────
-  const totalGastos  = gastosMes.reduce((s,g) => s + g.monto, 0);
+  const totalGastosDirectos = gastosMes.filter(g => !g.esCuota).reduce((s,g) => s + g.monto, 0);
+  const totalGastos  = totalGastosDirectos + cuotasMes;
   const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
   const totalCredito = gastosMes.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
   const totalDebito  = gastosMes.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);

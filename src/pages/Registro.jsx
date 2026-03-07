@@ -246,20 +246,20 @@ export default function Registro() {
                       const cat = getCat(r.categoria);
                       const met = getMet(r.metodo);
                       return (
-                        <div key={r.id} className="fade-up" style={{ background:"var(--bg-card)", border:`1px solid ${r.esCuota ? "var(--blue-border)" : "var(--yellow-border)"}`, borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
+                        <div key={r.id} className="fade-up" style={{ background:"var(--bg-card)", border:`1px solid ${(r.esCuota || r.metodo === "bcp" || r.metodo === "amex") ? "var(--blue-border)" : "var(--yellow-border)"}`, borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
                           <div style={{ width:34, height:34, borderRadius:"var(--radius-sm)", background:cat.color+"18", border:`1px solid ${cat.color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{cat.emoji}</div>
                           <div style={{ flex:1 }}>
                             <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:"var(--text-primary)", marginBottom:3 }}>{r.descripcion}</div>
                             <div style={{ display:"flex", gap:6 }}>
                               <Badge color={cat.color}>{cat.label}</Badge>
                               <Badge color={met.color}>{met.label}</Badge>
-                              {r.esCuota
+                              {(r.esCuota || (r.metodo === "bcp") || (r.metodo === "amex"))
                                 ? <Badge color="var(--blue)">Cuota tarjeta</Badge>
                                 : <Badge color="var(--yellow)">Mensual</Badge>
                               }
                             </div>
                           </div>
-                          <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color: r.esCuota ? "var(--blue)" : "var(--yellow)", fontWeight:500 }}>S/. {fmt(r.monto)}</div>
+                          <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color: (r.esCuota || r.metodo === "bcp" || r.metodo === "amex") ? "var(--blue)" : "var(--yellow)", fontWeight:500 }}>S/. {fmt(r.monto)}</div>
                           <button onClick={() => dispatch({ type:"DELETE_RECURRENTE", id:r.id })}
                             style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px", transition:"color .15s" }}
                             onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>

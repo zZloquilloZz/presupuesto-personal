@@ -349,6 +349,31 @@ export function useIngresoMes(mesIdx, anio) {
 
 // Ingreso disponible = el del mes anterior (el que ya fue depositado)
 // Ej: en marzo se usa el ingreso de febrero
+// Suma de cuotas activas de tarjeta para el mes actual
+export function useCuotasMes() {
+  const { state } = useApp();
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1; // 1-indexed
+  const anioActual = hoy.getFullYear();
+  let total = 0;
+  ["bcp", "amex"].forEach(t => {
+    const cuotas = state.tarjetas?.[t]?.cuotasActivas || [];
+    cuotas.forEach(c => {
+      const pagadas = parseInt(c.pagadas) || 0;
+      const totalC  = parseInt(c.totalCuotas) || 0;
+      const anioInicio = c.anioPrimerPago || anioActual;
+      const mesInicio  = c.mesPrimerPago  || mesActual;
+      // Calcular qué cuota número corresponde al mes actual
+      const diffMeses = (anioActual - anioInicio) * 12 + (mesActual - mesInicio);
+      const numeroCuota = diffMeses + 1; // cuota 1 = primer pago
+      if (numeroCuota >= 1 && numeroCuota <= totalC) {
+        total += parseFloat(c.cuota) || 0;
+      }
+    });
+  });
+  return total;
+}
+
 export function useIngresoDisponible() {
   const { state } = useApp();
   const hoy = new Date();
