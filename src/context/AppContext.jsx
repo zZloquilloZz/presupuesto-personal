@@ -355,28 +355,18 @@ export function useCuotasMes() {
   const hoy = new Date();
   const mesActual  = hoy.getMonth() + 1; // 1-indexed
   const anioActual = hoy.getFullYear();
-  const diaHoy     = hoy.getDate();
   let total = 0;
   ["bcp", "amex"].forEach(t => {
-    const tarjetaInfo = t === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
-    const pagoDia = tarjetaInfo.pagoDia; // dia limite de pago del mes
     const cuotas = state.tarjetas?.[t]?.cuotasActivas || [];
     cuotas.forEach(c => {
       const totalC     = parseInt(c.totalCuotas) || 0;
       const anioInicio = c.anioPrimerPago || anioActual;
       const mesInicio  = c.mesPrimerPago  || mesActual;
-      const diffMeses  = (anioActual - anioInicio) * 12 + (mesActual - mesInicio);
-      const numeroCuota = diffMeses + 1; // cuota 1 = primer mes de pago
-
-      // Si ya pasó el dia de pago este mes → cuota ya pagada, no mostrar
-      // Si aún no llega el dia de pago → cuota pendiente este mes
-      const cuotaPendienteEsteMes = numeroCuota >= 1 && numeroCuota <= totalC && diaHoy < pagoDia;
-      // Próxima cuota (mes siguiente) si ya se pagó este mes
-      const diffMesesSig = diffMeses + 1;
-      const numeroCuotaSig = diffMesesSig + 1;
-      const cuotaProximaMes = numeroCuotaSig >= 1 && numeroCuotaSig <= totalC && diaHoy >= pagoDia;
-
-      if (cuotaPendienteEsteMes || cuotaProximaMes) {
+      // Cuota numero que corresponde al mes actual
+      const diffMeses   = (anioActual - anioInicio) * 12 + (mesActual - mesInicio);
+      const numeroCuota = diffMeses + 1;
+      // Mostrar si la cuota cae en el mes actual y no está liquidada
+      if (numeroCuota >= 1 && numeroCuota <= totalC) {
         total += parseFloat(c.cuota) || 0;
       }
     });

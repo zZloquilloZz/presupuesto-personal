@@ -313,24 +313,28 @@ function toSnakeIngreso(r) {
 
 function normalizeCuota(r) {
   return {
-    id:          r.id,
-    desc:        r.descripcion,
-    montoTotal:  r.monto_total,
-    cuota:       r.cuota,
-    totalCuotas: r.total_cuotas,
-    pagadas:     r.pagadas,
-    conInteres:  r.con_interes ?? false,
+    id:             r.id,
+    desc:           r.descripcion,
+    montoTotal:     r.monto_total,
+    cuota:          r.cuota,
+    totalCuotas:    r.total_cuotas,
+    pagadas:        r.pagadas,
+    conInteres:     r.con_interes ?? false,
+    mesPrimerPago:  r.mes_primer_pago  ?? null,
+    anioPrimerPago: r.anio_primer_pago ?? null,
   };
 }
 
 function toSnakeCuota(r) {
   return {
-    descripcion:  r.desc,
-    monto_total:  r.montoTotal,
-    cuota:        r.cuota,
-    total_cuotas: r.totalCuotas,
-    pagadas:      r.pagadas,
-    con_interes:  r.conInteres ?? false,
+    descripcion:      r.desc,
+    monto_total:      r.montoTotal,
+    cuota:            r.cuota,
+    total_cuotas:     r.totalCuotas,
+    pagadas:          r.pagadas,
+    con_interes:      r.conInteres ?? false,
+    mes_primer_pago:  r.mesPrimerPago  ?? null,
+    anio_primer_pago: r.anioPrimerPago ?? null,
   };
 }
 
