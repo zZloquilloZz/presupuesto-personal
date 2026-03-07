@@ -48,17 +48,25 @@ export default function Dashboard() {
   const totalGastos  = totalGastosDirectos + cuotasMes;
   const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
 
-  // Entradas sinteticas de cuotas para graficos y breakdown
+  // Entradas sinteticas de cuotas para graficos (misma logica que useCuotasMes)
   const hoyG = new Date();
   const mesActualG = hoyG.getMonth() + 1;
   const anioActualG = hoyG.getFullYear();
+  const diaHoyG = hoyG.getDate();
   const cuotasParaGrafico = [];
   ["bcp","amex"].forEach(t => {
+    const tarjetaInfoG = t === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
+    const pagoDiaG = tarjetaInfoG.pagoDia;
     (state.tarjetas?.[t]?.cuotasActivas || []).forEach(c => {
       const anioInicio = c.anioPrimerPago || anioActualG;
       const mesInicio  = c.mesPrimerPago  || mesActualG;
-      const numeroCuota = (anioActualG - anioInicio) * 12 + (mesActualG - mesInicio) + 1;
-      if (numeroCuota >= 1 && numeroCuota <= (parseInt(c.totalCuotas)||0)) {
+      const diffMeses  = (anioActualG - anioInicio) * 12 + (mesActualG - mesInicio);
+      const numeroCuota = diffMeses + 1;
+      const numeroCuotaSig = diffMeses + 2;
+      const totalC = parseInt(c.totalCuotas)||0;
+      const activa = (numeroCuota >= 1 && numeroCuota <= totalC && diaHoyG < pagoDiaG)
+                  || (numeroCuotaSig >= 1 && numeroCuotaSig <= totalC && diaHoyG >= pagoDiaG);
+      if (activa) {
         cuotasParaGrafico.push({ descripcion: c.desc, categoria: "otros", monto: parseFloat(c.cuota)||0, metodo: t });
       }
     });
