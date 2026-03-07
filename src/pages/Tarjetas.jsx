@@ -105,7 +105,7 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas }) {
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
                     <div style={{ background:"var(--bg-input)", borderRadius:"var(--radius-sm)", padding:"6px 10px" }}>
                       <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>Progreso</div>
-                      <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-secondary)" }}>{parseInt(c.pagadas)||0}/{c.totalCuotas} ({pct.toFixed(0)}%)</div>
+                      <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-secondary)" }}>{pagadasAuto}/{c.totalCuotas} ({pct.toFixed(0)}%)</div>
                     </div>
                     {c.montoTotal>0 && (
                       <div style={{ background:"var(--bg-input)", borderRadius:"var(--radius-sm)", padding:"6px 10px" }}>

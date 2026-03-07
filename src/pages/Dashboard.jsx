@@ -42,12 +42,31 @@ export default function Dashboard() {
   const alertasCriticas = alertas.filter(a => a.dias <= 3);
   const totalAlertaMonto = alertas.reduce((s,a) => s + a.monto, 0);
 
-  // ── Calculos del mes — solo datos reales ──────────
-  const totalGastosDirectos = gastosMes.filter(g => !g.esCuota).reduce((s,g) => s + g.monto, 0);
+  // ── Calculos del mes ──────────────────────────────
+  const gastosDirectos = gastosMes.filter(g => !g.esCuota);
+  const totalGastosDirectos = gastosDirectos.reduce((s,g) => s + g.monto, 0);
   const totalGastos  = totalGastosDirectos + cuotasMes;
   const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
-  const totalCredito = gastosMes.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
-  const totalDebito  = gastosMes.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
+
+  // Entradas sinteticas de cuotas para graficos y breakdown
+  const hoyG = new Date();
+  const mesActualG = hoyG.getMonth() + 1;
+  const anioActualG = hoyG.getFullYear();
+  const cuotasParaGrafico = [];
+  ["bcp","amex"].forEach(t => {
+    (state.tarjetas?.[t]?.cuotasActivas || []).forEach(c => {
+      const anioInicio = c.anioPrimerPago || anioActualG;
+      const mesInicio  = c.mesPrimerPago  || mesActualG;
+      const numeroCuota = (anioActualG - anioInicio) * 12 + (mesActualG - mesInicio) + 1;
+      if (numeroCuota >= 1 && numeroCuota <= (parseInt(c.totalCuotas)||0)) {
+        cuotasParaGrafico.push({ descripcion: c.desc, categoria: "otros", monto: parseFloat(c.cuota)||0, metodo: t });
+      }
+    });
+  });
+  const gastosParaGrafico = [...gastosDirectos, ...cuotasParaGrafico];
+
+  const totalCredito = gastosParaGrafico.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
+  const totalDebito  = gastosParaGrafico.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
   // Ingreso disponible = mes anterior (ya depositado)
   const ingresoBase    = ingresoAnterior?.neto ?? 0;
   const hayIngresos    = ingresoBase > 0;
@@ -56,10 +75,10 @@ export default function Dashboard() {
   // Label para el KPI
   const hoyRef = new Date();
   const mesRef = hoyRef.getMonth() === 0 ? 11 : hoyRef.getMonth() - 1;
-  const hayGastos    = gastosMes.length > 0;
+  const hayGastos    = gastosParaGrafico.length > 0;
 
-  // Grafico de torta — solo si hay gastos
-  const pieData = agruparPorCategoria(gastosMes, CATEGORIAS);
+  // Grafico de torta
+  const pieData = agruparPorCategoria(gastosParaGrafico, CATEGORIAS);
   const catTop  = [...pieData].sort((a,b) => b.total - a.total)[0];
 
   // Historial de 6 meses — construido 100% desde datos registrados
