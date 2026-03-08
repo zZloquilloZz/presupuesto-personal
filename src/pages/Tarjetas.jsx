@@ -1,3 +1,123 @@
+// Cronograma navegable con deudas por mes
+const CRONOGRAMA = {
+  bcp: [
+    { mes:"Enero",      mesIdx:0,  anio:2026, desde:"10 Dic", hasta:"09 Ene", pago:"05 Feb" },
+    { mes:"Febrero",    mesIdx:1,  anio:2026, desde:"10 Ene", hasta:"09 Feb", pago:"05 Mar" },
+    { mes:"Marzo",      mesIdx:2,  anio:2026, desde:"10 Feb", hasta:"09 Mar", pago:"02 Abr" },
+    { mes:"Abril",      mesIdx:3,  anio:2026, desde:"10 Mar", hasta:"09 Abr", pago:"04 May" },
+    { mes:"Mayo",       mesIdx:4,  anio:2026, desde:"10 Abr", hasta:"09 May", pago:"05 Jun" },
+    { mes:"Junio",      mesIdx:5,  anio:2026, desde:"10 May", hasta:"09 Jun", pago:"03 Jul" },
+    { mes:"Julio",      mesIdx:6,  anio:2026, desde:"10 Jun", hasta:"09 Jul", pago:"07 Ago" },
+    { mes:"Agosto",     mesIdx:7,  anio:2026, desde:"10 Jul", hasta:"09 Ago", pago:"04 Sep" },
+    { mes:"Septiembre", mesIdx:8,  anio:2026, desde:"10 Ago", hasta:"09 Sep", pago:"04 Oct" },
+    { mes:"Octubre",    mesIdx:9,  anio:2026, desde:"10 Sep", hasta:"09 Oct", pago:"05 Nov" },
+    { mes:"Noviembre",  mesIdx:10, anio:2026, desde:"10 Oct", hasta:"09 Nov", pago:"04 Dic" },
+    { mes:"Diciembre",  mesIdx:11, anio:2026, desde:"10 Nov", hasta:"09 Dic", pago:"08 Ene" },
+  ],
+  amex: [
+    { mes:"Enero",      mesIdx:0,  anio:2026, desde:"06 Dic", hasta:"05 Ene", pago:"02 Feb" },
+    { mes:"Febrero",    mesIdx:1,  anio:2026, desde:"06 Ene", hasta:"05 Feb", pago:"02 Mar" },
+    { mes:"Marzo",      mesIdx:2,  anio:2026, desde:"06 Feb", hasta:"05 Mar", pago:"02 Abr" },
+    { mes:"Abril",      mesIdx:3,  anio:2026, desde:"06 Mar", hasta:"05 Abr", pago:"04 May" },
+    { mes:"Mayo",       mesIdx:4,  anio:2026, desde:"06 Abr", hasta:"05 May", pago:"02 Jun" },
+    { mes:"Junio",      mesIdx:5,  anio:2026, desde:"06 May", hasta:"05 Jun", pago:"02 Jul" },
+    { mes:"Julio",      mesIdx:6,  anio:2026, desde:"06 Jun", hasta:"05 Jul", pago:"03 Ago" },
+    { mes:"Agosto",     mesIdx:7,  anio:2026, desde:"06 Jul", hasta:"05 Ago", pago:"02 Sep" },
+    { mes:"Septiembre", mesIdx:8,  anio:2026, desde:"06 Ago", hasta:"05 Sep", pago:"02 Oct" },
+    { mes:"Octubre",    mesIdx:9,  anio:2026, desde:"06 Sep", hasta:"05 Oct", pago:"03 Nov" },
+    { mes:"Noviembre",  mesIdx:10, anio:2026, desde:"06 Oct", hasta:"05 Nov", pago:"02 Dic" },
+    { mes:"Diciembre",  mesIdx:11, anio:2026, desde:"06 Nov", hasta:"05 Dic", pago:"05 Ene" },
+  ],
+};
+
+function CronogramaCard({ tarjetaId, tarjeta, cuotas, gastos }) {
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  const anioActual = hoy.getFullYear();
+  const [mesSel, setMesSel] = useState(mesActual);
+  const cronograma = CRONOGRAMA[tarjetaId] || [];
+  const entrada = cronograma.find(e => e.mesIdx === mesSel) || cronograma[mesActual];
+
+  // Gastos directos cuya fecha de cargo cae en este mes de pago
+  const gastosDelMes = (gastos || []).filter(g => {
+    if (g.metodo !== tarjetaId || g.esCuota) return false;
+    const d = new Date(g.fecha);
+    return d.getMonth() === mesSel && d.getFullYear() === anioActual;
+  });
+
+  // Cuotas que se pagan en este mes
+  const cuotasDelMes = (cuotas || []).filter(c => {
+    const anioIni = c.anioPrimerPago || anioActual;
+    const mesIni  = c.mesPrimerPago  || (mesActual + 1);
+    const diff    = (anioActual - anioIni) * 12 + (mesSel - (mesIni - 1));
+    const numCuota = diff + 1;
+    return numCuota >= 1 && numCuota <= parseInt(c.totalCuotas || 0);
+  });
+
+  const totalMes = gastosDelMes.reduce((s,g) => s + (parseFloat(g.monto)||0), 0)
+                 + cuotasDelMes.reduce((s,c) => s + (parseFloat(c.cuota)||0), 0);
+  const esActual = mesSel === mesActual;
+
+  return (
+    <Card>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+        <SectionTitle style={{ marginBottom:0 }}>Cronograma {tarjeta.nombre}</SectionTitle>
+        <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+          <button onClick={() => setMesSel(m => Math.max(0, m-1))} disabled={mesSel===0}
+            style={{ background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-muted)", width:24, height:24, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
+          <span style={{ fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, color: esActual ? tarjeta.color : "var(--text-secondary)", minWidth:60, textAlign:"center" }}>
+            {entrada?.mes}
+            {esActual && <span style={{ display:"block", fontSize:8, color:tarjeta.color }}>MES ACTUAL</span>}
+          </span>
+          <button onClick={() => setMesSel(m => Math.min(11, m+1))} disabled={mesSel===11}
+            style={{ background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-muted)", width:24, height:24, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
+        </div>
+      </div>
+
+      {entrada && (
+        <div style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", marginBottom:10, padding:"6px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)" }}>
+          Ciclo: {entrada.desde} → {entrada.hasta} — Pago límite: <span style={{ color:tarjeta.color, fontWeight:700 }}>{entrada.pago}</span>
+        </div>
+      )}
+
+      {/* Lista de deudas de ese mes */}
+      {gastosDelMes.length === 0 && cuotasDelMes.length === 0 ? (
+        <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"center", padding:"14px 0", fontFamily:"var(--font-sans)" }}>Sin compras registradas en este ciclo</div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+          {gastosDelMes.map((g,i) => (
+            <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", borderLeft:`2px solid ${tarjeta.color}` }}>
+              <div>
+                <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{g.descripcion}</div>
+                <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)" }}>Compra directa</div>
+              </div>
+              <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:tarjeta.color }}>S/. {fmt(g.monto)}</span>
+            </div>
+          ))}
+          {cuotasDelMes.map((c,i) => {
+            const anioIni  = c.anioPrimerPago || anioActual;
+            const mesIni   = c.mesPrimerPago  || (mesActual + 1);
+            const numCuota = (anioActual - anioIni) * 12 + (mesSel - (mesIni - 1)) + 1;
+            return (
+              <div key={"c"+i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"var(--blue-bg)", borderRadius:"var(--radius-sm)", borderLeft:"2px solid var(--blue)" }}>
+                <div>
+                  <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{c.desc}</div>
+                  <div style={{ fontSize:8, color:"var(--blue)", fontFamily:"var(--font-sans)" }}>Cuota {numCuota}/{c.totalCuotas}</div>
+                </div>
+                <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--blue)" }}>S/. {fmt(c.cuota)}</span>
+              </div>
+            );
+          })}
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"7px 10px", borderTop:"1px solid var(--border)", marginTop:2 }}>
+            <span style={{ fontSize:10, fontFamily:"var(--font-sans)", color:"var(--text-muted)", fontWeight:700 }}>Total a pagar</span>
+            <span style={{ fontFamily:"var(--font-mono)", fontSize:12, color:tarjeta.color, fontWeight:600 }}>S/. {fmt(totalMes)}</span>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 // Panel de Tarjetas — solo lectura.
 // Las cuotas se crean desde Registro al registrar una compra a cuotas.
 
@@ -198,24 +318,7 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
             </div>
           </Card>
 
-          {tarjetaId === "bcp" && (
-            <Card>
-              <SectionTitle>Cronograma BCP 2026</SectionTitle>
-              <div style={{ display:"flex", flexDirection:"column", gap:4, maxHeight:280, overflowY:"auto" }}>
-                {CRONOGRAMA_BCP.map((c,i)=>(
-                  <div key={i} style={{ display:"flex", flexDirection:"column", padding:"7px 10px", background:i===MES_ACTUAL?"var(--blue-bg)":"var(--bg-input)", border:`1px solid ${i===MES_ACTUAL?"var(--blue)":"var(--border)"}`, borderRadius:"var(--radius-sm)" }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:2 }}>
-                      <span style={{ fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, color:i===MES_ACTUAL?"var(--blue)":"var(--text-secondary)" }}>{c.mes}</span>
-                      {i===MES_ACTUAL && <Badge color="var(--blue)">ACTUAL</Badge>}
-                    </div>
-                    <div style={{ fontSize:9, color:"var(--text-ghost)" }}>
-                      Ciclo: {c.desde} → {c.hasta} — Pago: <span style={{color:i===MES_ACTUAL?"var(--blue)":"var(--text-dim)"}}>{c.pago}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+          <CronogramaCard tarjetaId={tarjetaId} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos}/>
         </div>
       </div>
     </div>

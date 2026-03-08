@@ -138,18 +138,7 @@ export default function Dashboard() {
             <span style={{ background: alertasCriticas.length > 0 ? "var(--red)" : "var(--yellow)", borderRadius:"50%", width:18, height:18, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:800, color:"#0A0C10" }}>{alertas.length}</span>
           </button>
         )}
-        <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3 }}>
-          {[{ k:"periodo", l:`Ciclo ${periodo.label}` }, { k:"calendario", l:"Mes calendario" }].map(v => (
-            <button key={v.k} onClick={() => setVista(v.k)} style={{
-              background: vista === v.k ? "var(--bg-hover)" : "transparent",
-              border: vista === v.k ? "1px solid var(--blue)" : "1px solid transparent",
-              borderRadius:"var(--radius-sm)", color: vista === v.k ? "var(--blue)" : "var(--text-muted)",
-              fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700,
-              padding:"6px 11px", cursor:"pointer", transition:"all .15s",
-              letterSpacing:"0.06em", textTransform:"uppercase", whiteSpace:"nowrap",
-            }}>{v.l}</button>
-          ))}
-        </div>
+
       </PageHeader>
 
       {/* Panel de alertas */}
@@ -285,7 +274,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 {/* Barra de uso de linea */}
-                <div>
+                <div style={{ marginBottom:12 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"var(--text-dim)", marginBottom:5, fontFamily:"var(--font-sans)" }}>
                     <span>Linea de credito usada</span>
                     <span style={{ color: pctUsado > 80 ? "var(--red)" : pctUsado > 50 ? "var(--yellow)" : "var(--green)" }}>{pctUsado.toFixed(0)}%</span>
@@ -298,6 +287,51 @@ export default function Dashboard() {
                     <span style={{ color: disponible < 200 ? "var(--red)" : "var(--green)" }}>Disponible S/. {fmt(disponible)}</span>
                   </div>
                 </div>
+
+                {/* Lista de compras pendientes */}
+                {(() => {
+                  const directosList = state.gastos
+                    .filter(g => g.metodo === t.id && !g.esCuota)
+                    .filter(g => new Date(g.fecha) > ultimoPagoD)
+                    .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+                  const cuotasList = cuotasT.filter(c => {
+                    const anioIni = c.anioPrimerPago || anioD;
+                    const mesIni  = c.mesPrimerPago  || (mesD + 1);
+                    const pagAuto = Math.min(Math.max((anioD - anioIni)*12 + (mesD + 1 - mesIni) + 1, parseInt(c.pagadas)||0), parseInt(c.totalCuotas)||0);
+                    return pagAuto < parseInt(c.totalCuotas||0);
+                  });
+                  if (directosList.length === 0 && cuotasList.length === 0) return (
+                    <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"center", padding:"8px 0", fontFamily:"var(--font-sans)" }}>Sin compras pendientes</div>
+                  );
+                  return (
+                    <div style={{ display:"flex", flexDirection:"column", gap:5, maxHeight:140, overflowY:"auto" }}>
+                      {directosList.map((g,i) => (
+                        <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 9px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", borderLeft:`2px solid ${t.color}` }}>
+                          <div>
+                            <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{g.descripcion}</div>
+                            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)" }}>Cargo: {new Date(g.fecha).toLocaleDateString("es-PE",{day:"2-digit",month:"short"})}</div>
+                          </div>
+                          <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:t.color }}>S/. {fmt(g.monto)}</span>
+                        </div>
+                      ))}
+                      {cuotasList.map((c,i) => {
+                        const anioIni = c.anioPrimerPago || anioD;
+                        const mesIni  = c.mesPrimerPago  || (mesD + 1);
+                        const pagAuto = Math.min(Math.max((anioD - anioIni)*12 + (mesD + 1 - mesIni) + 1, parseInt(c.pagadas)||0), parseInt(c.totalCuotas)||0);
+                        const restC   = Math.max(0, parseInt(c.totalCuotas||0) - pagAuto);
+                        return (
+                          <div key={"c"+i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 9px", background:"var(--blue-bg)", borderRadius:"var(--radius-sm)", borderLeft:"2px solid var(--blue)" }}>
+                            <div>
+                              <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{c.desc}</div>
+                              <div style={{ fontSize:8, color:"var(--blue)", fontFamily:"var(--font-sans)" }}>{pagAuto}/{c.totalCuotas} cuotas — {restC} restantes</div>
+                            </div>
+                            <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--blue)" }}>S/. {fmt(c.cuota)}/mes</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </Card>
             );
           })}
