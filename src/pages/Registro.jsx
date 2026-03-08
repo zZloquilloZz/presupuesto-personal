@@ -52,6 +52,7 @@ function PagosFijosPanel({ state, dispatch, fijoForm, setFijoForm, fijoError, se
     if (!fijoForm.dia || parseInt(fijoForm.dia) < 1 || parseInt(fijoForm.dia) > 31) return setFijoError("Dia debe ser entre 1 y 31");
     setFijoError("");
     dispatch({ type: "ADD_GASTO_FIJO", payload: {
+      id:          uid(),
       descripcion: fijoForm.descripcion.trim(),
       monto:       parseFloat(fijoForm.monto),
       dia:         parseInt(fijoForm.dia),

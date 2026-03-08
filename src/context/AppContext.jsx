@@ -41,6 +41,8 @@ function reducer(state, action) {
 
     case "ADD_GASTO_FIJO":
       return { ...state, gastosFijos: [...state.gastosFijos, action.payload] };
+    case "UPDATE_GASTO_FIJO":
+      return { ...state, gastosFijos: state.gastosFijos.map(g => g.id === action.tempId ? action.payload : g) };
     case "DELETE_GASTO_FIJO":
       return { ...state, gastosFijos: state.gastosFijos.filter(g => g.id !== action.id) };
 
@@ -202,7 +204,7 @@ export function AppProvider({ children }) {
 
         case "ADD_GASTO_FIJO": {
           const saved = await db.gastosFijos.add(user.id, action.payload);
-          localDispatch({ type: "HYDRATE", payload: { ...state, gastosFijos: [...state.gastosFijos.filter(g => g.id !== action.payload.id), saved] } });
+          localDispatch({ type: "UPDATE_GASTO_FIJO", tempId: action.payload.id, payload: saved });
           break;
         }
         case "DELETE_GASTO_FIJO":
