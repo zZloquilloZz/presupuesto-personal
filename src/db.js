@@ -69,7 +69,6 @@ export const db = {
         dia:         r.dia,
         categoria:   r.categoria || "otros",
         metodo:      r.metodo    || "debito",
-        notas:       r.notas     || "",
       }));
     },
 
@@ -83,7 +82,6 @@ export const db = {
           dia:         fijo.dia,
           categoria:   fijo.categoria || "otros",
           metodo:      fijo.metodo    || "debito",
-          notas:       fijo.notas     || "",
         })
         .select()
         .single();
