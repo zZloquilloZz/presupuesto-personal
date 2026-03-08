@@ -92,7 +92,7 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
         <KPICard label="Cuota total mes"  value={`S/. ${fmt(totalCuotasMes)}`} valueColor={tarjeta.color} delay={0}/>
-        <KPICard label="Deuda pendiente"  value={`S/. ${fmt(totalDeuda)}`}     valueColor="var(--red)" bg="var(--red-bg)" border="var(--red-border)" delay={0.06}/>
+        <KPICard label="Deuda pendiente"  value={`S/. ${fmt(totalDeudaCuotas)}`}     valueColor="var(--red)" bg="var(--red-bg)" border="var(--red-border)" delay={0.06}/>
         <KPICard label="Proximo pago"     value={`${diasPago} dias`}           valueColor={diasPago<=5?"var(--red)":diasPago<=10?"var(--yellow)":"var(--green)"} sub={`Dia ${tarjeta.pagoDia} de cada mes`} delay={0.12}/>
         <KPICard label="Cuotas activas"   value={`${cuotas.filter(c=>(parseInt(c.totalCuotas)||0)-(parseInt(c.pagadas)||0)>0).length}`} valueColor={tarjeta.color} sub={`${cuotas.reduce((s,c)=>s+Math.max(0,(parseInt(c.totalCuotas)||0)-(parseInt(c.pagadas)||0)),0)} pagos pendientes`} delay={0.18}/>
       </div>
