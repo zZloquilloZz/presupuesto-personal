@@ -64,20 +64,35 @@ export default function Dashboard() {
   const hayGastos    = gastosMes.length > 0;
 
   // Grafico de torta
-  const pieData = agruparPorCategoria(gastosParaGrafico, CATEGORIAS);
+  // Para el pie: gastos del mes actual + gastos del mes siguiente (cuotas de tarjeta ya registradas)
+  const hoyPie = new Date();
+  const mesSigIdx = (hoyPie.getMonth() + 1) % 12;
+  const anioSig   = hoyPie.getMonth() === 11 ? hoyPie.getFullYear() + 1 : hoyPie.getFullYear();
+  const gastosMesSig = state.gastos.filter(g => {
+    const d = new Date(g.fecha);
+    return d.getMonth() === mesSigIdx && d.getFullYear() === anioSig;
+  });
+  const gastosVista = [...gastosMes, ...gastosMesSig];
+  const pieData = agruparPorCategoria(gastosVista.length > 0 ? gastosVista : gastosMes, CATEGORIAS);
   const catTop  = [...pieData].sort((a,b) => b.total - a.total)[0];
 
-  // Historial de 6 meses — construido 100% desde datos registrados
+  // Historial de 7 meses (4 anteriores + actual + 2 siguientes si hay datos)
+  // Ingreso de mes X se muestra en mes X+1 (porque se cobra en X+1)
   const historial = (() => {
     const hoy = new Date();
-    return Array.from({ length: 6 }, (_, i) => {
-      const fecha  = new Date(hoy.getFullYear(), hoy.getMonth() - (5 - i), 1);
+    return Array.from({ length: 7 }, (_, i) => {
+      const fecha  = new Date(hoy.getFullYear(), hoy.getMonth() - 4 + i, 1);
       const mIdx   = fecha.getMonth();
       const anio   = fecha.getFullYear();
-      const gasts  = state.gastos.filter(g => { const d = new Date(g.fecha); return d.getMonth() === mIdx && d.getFullYear() === anio; });
-      const ingr   = state.historialIngresos.find(h => h.mesIdx === mIdx && h.anio === anio);
-      const hoyNow = new Date();
-      const esMesActual = mIdx === hoyNow.getMonth() && anio === hoyNow.getFullYear();
+      const gasts  = state.gastos.filter(g => {
+        const d = new Date(g.fecha);
+        return d.getMonth() === mIdx && d.getFullYear() === anio;
+      });
+      // Ingreso disponible = lo que se registró el mes ANTERIOR
+      const mesIngrIdx = mIdx === 0 ? 11 : mIdx - 1;
+      const anioIngr   = mIdx === 0 ? anio - 1 : anio;
+      const ingr = state.historialIngresos.find(h => h.mesIdx === mesIngrIdx && h.anio === anioIngr);
+      const esMesActual = mIdx === hoy.getMonth() && anio === hoy.getFullYear();
       return {
         mes:     MESES[mIdx],
         gastado: gasts.reduce((s,g) => s + g.monto, 0),
