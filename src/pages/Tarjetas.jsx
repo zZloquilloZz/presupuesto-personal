@@ -24,9 +24,25 @@ const CRONOGRAMA_BCP = [
 const MES_ACTUAL = new Date().getMonth();
 
 function PanelTarjeta({ tarjetaId, tarjeta, cuotas }) {
-  const totalCuotasMes = cuotas.reduce((s,c) => s + (parseFloat(c.cuota)||0), 0);
-  const totalDeuda     = cuotas.reduce((s,c) => {
-    const rest = (parseInt(c.totalCuotas)||0) - (parseInt(c.pagadas)||0);
+  // Calcular pagadas automaticamente segun mes actual
+  const hoyT2 = new Date();
+  const mesActualT2  = hoyT2.getMonth() + 1;
+  const anioActualT2 = hoyT2.getFullYear();
+  const calcPagadasAuto = (cuota) => {
+    const anioInicio = cuota.anioPrimerPago || anioActualT2;
+    const mesInicio  = cuota.mesPrimerPago  || mesActualT2;
+    const diff = (anioActualT2 - anioInicio) * 12 + (mesActualT2 - mesInicio) + 1;
+    return Math.min(Math.max(diff, parseInt(cuota.pagadas)||0), parseInt(cuota.totalCuotas)||0);
+  };
+  const totalCuotasMes = cuotas.reduce((s,c) => {
+    const pAuto = calcPagadasAuto(c);
+    const totalC = parseInt(c.totalCuotas)||0;
+    // Solo suma si aun hay cuotas pendientes
+    return pAuto < totalC ? s + (parseFloat(c.cuota)||0) : s;
+  }, 0);
+  const totalDeuda = cuotas.reduce((s,c) => {
+    const pAuto = calcPagadasAuto(c);
+    const rest   = Math.max(0, (parseInt(c.totalCuotas)||0) - pAuto);
     return s + rest * (parseFloat(c.cuota)||0);
   }, 0);
   const lineaUsada     = totalDeuda;
