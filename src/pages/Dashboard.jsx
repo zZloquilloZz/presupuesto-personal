@@ -45,7 +45,8 @@ export default function Dashboard() {
   const totalGastosDirectos = gastosDirectos.reduce((s,g) => s + g.monto, 0);
   const totalGastos  = totalGastosDirectos + cuotasMes;
   const totalDeudas  = (state.deudas||[]).filter(d => d.cuotaMensual > 0).reduce((s,d) => s + (parseFloat(d.cuotaMensual)||0), 0);
-  const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0) + totalDeudas;
+  const totalFijosSolo = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
+  const totalFijos   = totalFijosSolo + totalDeudas;
 
   // Entradas sinteticas de cuotas para graficos (misma logica que useCuotasMes)
   const hoyG = new Date();
@@ -72,8 +73,10 @@ export default function Dashboard() {
   });
   const gastosParaGrafico = [...gastosDirectos, ...cuotasParaGrafico];
 
-  const totalCredito = gastosParaGrafico.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
-  const totalDebito  = gastosParaGrafico.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
+  // Metodo de pago: solo gastos directos del mes + cuotas del mes actual (no acumuladas)
+  const gastosMetodo  = [...gastosDirectos, ...cuotasParaGrafico];
+  const totalCredito  = gastosMetodo.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
+  const totalDebito   = gastosMetodo.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
   // Ingreso disponible = mes anterior (ya depositado)
   const ingresoBase    = ingresoAnterior?.neto ?? 0;
   const hayIngresos    = ingresoBase > 0;
@@ -350,7 +353,7 @@ export default function Dashboard() {
 
 
           {/* Lista gastos fijos + deudas */}
-          {state.gastosFijos.length === 0 && (!state.deudas || state.deudas.length === 0) ? (
+          {state.gastosFijos.length === 0 && (state.deudas||[]).filter(d=>d.cuotaMensual>0).length === 0 ? (
             <div style={{ padding:"20px 0", textAlign:"center", color:"var(--text-ghost)" }}>
               <div style={{ fontSize:11, fontFamily:"var(--font-sans)" }}>Sin compromisos fijos aun — agrega desde la seccion Deudas o Ingresos</div>
             </div>
@@ -376,17 +379,17 @@ export default function Dashboard() {
               })}
               {/* Deudas activas como compromisos */}
               {(state.deudas||[]).filter(d => d.cuotaMensual > 0).map((d, i) => (
-                <div key={d.id||i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"var(--bg-input)", border:"1px solid var(--orange-border, #F97316aa)", borderRadius:"var(--radius-sm)" }}>
+                <div key={d.id||i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"var(--bg-input)", border:"1px solid #F9731644", borderRadius:"var(--radius-sm)" }}>
                   <div>
                     <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:600, color:"var(--text-primary)" }}>{d.descripcion || d.nombre}</div>
-                    <div style={{ fontSize:9, color:"var(--orange, #F97316)", marginTop:1 }}>Préstamo · cuota mensual</div>
+                    <div style={{ fontSize:9, color:"#F97316", marginTop:1 }}>Préstamo · cuota mensual</div>
                   </div>
-                  <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--orange, #F97316)" }}>S/. {fmt(d.cuotaMensual)}</span>
+                  <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"#F97316" }}>S/. {fmt(d.cuotaMensual)}</span>
                 </div>
               ))}
               <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 12px", borderTop:"1px solid var(--border)", marginTop:2 }}>
                 <span style={{ fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, color:"var(--text-ghost)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length} compromisos</span>
-                <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--yellow)" }}>S/. {fmt(totalFijos + (state.deudas||[]).filter(d=>d.cuotaMensual>0).reduce((s,d)=>s+(parseFloat(d.cuotaMensual)||0),0))}</span>
+                <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--yellow)" }}>S/. {fmt(totalFijos)}</span>
               </div>
             </div>
           )}
