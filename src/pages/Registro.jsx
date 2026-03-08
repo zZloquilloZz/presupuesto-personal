@@ -226,6 +226,7 @@ export default function Registro() {
     if (!form.descripcion.trim()) e.descripcion = "Requerido";
     if (!form.monto || parseFloat(form.monto) <= 0) e.monto = "Ingresa un monto valido";
     if (!form.esCuota && !form.fecha) e.fecha = "Requerido";
+    if (!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") && !form.fechaCompra) e.fecha = "Ingresa la fecha de compra";
     if (form.esCuota) {
       if (!form.totalCuotas || parseInt(form.totalCuotas) < 2) e.totalCuotas = "Minimo 2 cuotas";
       if (!tarjetaActiva) e.metodo = "Selecciona BCP o AMEX para cuotas";
@@ -516,11 +517,23 @@ export default function Registro() {
                     <Field label={form.esCuota?"Monto total de la compra (S/.)":"Monto (S/.)"} error={errors.monto}>
                       <input type="number" min="0" step="0.01" placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)} style={errors.monto?{borderColor:"var(--red)"}:{}}/>
                     </Field>
-                    {!form.esCuota && (
+                    {!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") ? (
+                      <Field label="¿Cuándo compraste?" error={errors.fecha}>
+                        <input type="date" value={form.fechaCompra} onChange={e=>{
+                          sf("fechaCompra",e.target.value);
+                          // Calcular fecha de cargo según ciclo
+                          if(e.target.value && tarjetaActiva) {
+                            const pp = getPrimerPago(e.target.value, tarjetaActiva.cierre);
+                            const fechaCargo = `${pp.anio}-${String(pp.mes).padStart(2,"0")}-${String(tarjetaActiva.pagoDia).padStart(2,"0")}`;
+                            sf("fecha", fechaCargo);
+                          }
+                        }}/>
+                      </Field>
+                    ) : !form.esCuota ? (
                       <Field label="Fecha del gasto" error={errors.fecha}>
                         <input type="date" value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
                       </Field>
-                    )}
+                    ) : null}
                   </div>
 
                   <Field label="Metodo de pago" error={errors.metodo}>
@@ -535,6 +548,16 @@ export default function Registro() {
                       ))}
                     </div>
                   </Field>
+
+                  {/* Info ciclo — compra directa con tarjeta */}
+                  {!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") && form.fechaCompra && tarjetaActiva && (() => {
+                    const pp = getPrimerPago(form.fechaCompra, tarjetaActiva.cierre);
+                    return (
+                      <div style={{ padding:"8px 12px", background:"var(--blue-bg)", border:"1px solid var(--blue-border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--blue)" }}>
+                        📅 Se registrará en: <strong>{MESES_LABEL[pp.mes]} {pp.anio}</strong> (dia {tarjetaActiva.pagoDia})
+                      </div>
+                    );
+                  })()}
 
                   {/* Toggle cuotas — solo si no es edición y método es tarjeta */}
                   {!editId && (form.metodo==="bcp"||form.metodo==="amex") && (
