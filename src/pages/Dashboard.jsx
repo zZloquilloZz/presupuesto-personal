@@ -44,7 +44,8 @@ export default function Dashboard() {
   const gastosDirectos = gastosMes.filter(g => !g.esCuota);
   const totalGastosDirectos = gastosDirectos.reduce((s,g) => s + g.monto, 0);
   const totalGastos  = totalGastosDirectos + cuotasMes;
-  const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
+  const totalDeudas  = (state.deudas||[]).filter(d => d.cuotaMensual > 0).reduce((s,d) => s + (parseFloat(d.cuotaMensual)||0), 0);
+  const totalFijos   = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0) + totalDeudas;
 
   // Entradas sinteticas de cuotas para graficos (misma logica que useCuotasMes)
   const hoyG = new Date();
@@ -96,11 +97,13 @@ export default function Dashboard() {
       const anio   = fecha.getFullYear();
       const gasts  = state.gastos.filter(g => { const d = new Date(g.fecha); return d.getMonth() === mIdx && d.getFullYear() === anio; });
       const ingr   = state.historialIngresos.find(h => h.mesIdx === mIdx && h.anio === anio);
+      const hoyNow = new Date();
+      const esMesActual = mIdx === hoyNow.getMonth() && anio === hoyNow.getFullYear();
       return {
         mes:     MESES[mIdx],
         gastado: gasts.reduce((s,g) => s + g.monto, 0),
         ingreso: ingr?.neto ?? 0,
-        fijos:   totalFijos,  // usa gastosFijos del estado
+        fijos:   esMesActual ? totalFijos : 0,
       };
     });
   })();
@@ -214,7 +217,7 @@ export default function Dashboard() {
             delay={0}
           />
           <KPICard label="Gastos variables"   value={`S/. ${fmt(totalGastos)}`}  valueColor="var(--text-primary)" delay={0.06}/>
-          <KPICard label="Compromisos fijos"  value={`S/. ${fmt(totalFijos)}`}   valueColor="var(--yellow)" bg="var(--yellow-bg)" border="var(--yellow-border)" sub={state.gastosFijos.length > 0 ? `${state.gastosFijos.length} compromisos` : "Sin configurar aun"} delay={0.12}/>
+          <KPICard label="Compromisos fijos"  value={`S/. ${fmt(totalFijos)}`}   valueColor="var(--yellow)" bg="var(--yellow-bg)" border="var(--yellow-border)" sub={(state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length) > 0 ? `${state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length} compromisos` : "Sin configurar aun"} delay={0.12}/>
           <KPICard label="Total egresos"      value={`S/. ${fmt(totalGastos + totalFijos)}`} valueColor={hayIngresos && totalGastos + totalFijos > ingresoBase ? "var(--red)" : "var(--text-primary)"} delay={0.18}/>
           <KPICard
             label="Saldo disponible"
@@ -326,9 +329,9 @@ export default function Dashboard() {
                   <XAxis dataKey="mes" tick={{ fill:"var(--text-dim)", fontSize:9, fontFamily:"var(--font-mono)" }} axisLine={false} tickLine={false}/>
                   <YAxis hide/>
                   <Tooltip content={<ChartTooltip/>}/>
-                  <Bar dataKey="ingreso" name="Ingreso"  fill="#4ADE8033" radius={[3,3,0,0]}/>
-                  <Bar dataKey="gastado" name="Variable" fill="var(--blue)" radius={[3,3,0,0]}/>
-                  <Bar dataKey="fijos"   name="Fijos"    fill="#FBBF2488" radius={[3,3,0,0]}/>
+                  <Bar dataKey="ingreso" name="Ingreso"  fill="#4ADE8055" radius={[3,3,0,0]}/>
+                  <Bar dataKey="gastado" name="Variable" fill="#38BDF8" radius={[3,3,0,0]}/>
+                  <Bar dataKey="fijos"   name="Fijos"    fill="#FBBF24" radius={[3,3,0,0]}/>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -373,12 +376,12 @@ export default function Dashboard() {
               })}
               {/* Deudas activas como compromisos */}
               {(state.deudas||[]).filter(d => d.cuotaMensual > 0).map((d, i) => (
-                <div key={d.id||i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"var(--bg-input)", border:"1px solid var(--red-border)", borderRadius:"var(--radius-sm)" }}>
+                <div key={d.id||i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"var(--bg-input)", border:"1px solid var(--orange-border, #F97316aa)", borderRadius:"var(--radius-sm)" }}>
                   <div>
                     <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:600, color:"var(--text-primary)" }}>{d.descripcion || d.nombre}</div>
-                    <div style={{ fontSize:9, color:"var(--red)", marginTop:1 }}>Deuda — cuota mensual</div>
+                    <div style={{ fontSize:9, color:"var(--orange, #F97316)", marginTop:1 }}>Préstamo · cuota mensual</div>
                   </div>
-                  <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--red)" }}>S/. {fmt(d.cuotaMensual)}</span>
+                  <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--orange, #F97316)" }}>S/. {fmt(d.cuotaMensual)}</span>
                 </div>
               ))}
               <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 12px", borderTop:"1px solid var(--border)", marginTop:2 }}>
