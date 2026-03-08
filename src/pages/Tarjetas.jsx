@@ -42,38 +42,27 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
     return pAuto < totalC ? s + (parseFloat(c.cuota)||0) : s;
   }, 0);
 
-  // Linea usada = ciclo anterior (si aun no se pago) + ciclo actual en curso + deuda cuotas
-  const calcLineaUsada = (tId, cierreDia, pagoDia, gastosAll) => {
+  // Linea usada = todos los gastos directos aun no pagados + deuda cuotas pendientes
+  // Un gasto "no pagado" es aquel cuya fecha de cargo aun no llego al dia de pago
+  const calcLineaUsada = (tId, pagoDia, gastosAll) => {
     const hoy  = new Date();
     const dia  = hoy.getDate();
     const mes  = hoy.getMonth();
     const anio = hoy.getFullYear();
 
-    // Inicio del ciclo actual
-    const inicioActual = dia >= cierreDia
-      ? new Date(anio, mes, cierreDia)
-      : new Date(anio, mes - 1, cierreDia);
+    // Ultimo dia de pago que ya paso (esa deuda ya fue pagada)
+    let ultimoPagoYaRealizado;
+    if (dia >= pagoDia) {
+      ultimoPagoYaRealizado = new Date(anio, mes, pagoDia);
+    } else {
+      ultimoPagoYaRealizado = new Date(anio, mes - 1, pagoDia);
+    }
 
-    // Inicio del ciclo anterior
-    const inicioCicloAnt = new Date(inicioActual.getFullYear(), inicioActual.getMonth() - 1, cierreDia);
-
-    // Dia de pago del ciclo anterior
-    const diaPagoCicloAnt = dia >= cierreDia
-      ? new Date(anio, mes, pagoDia)       // pago es este mes
-      : new Date(anio, mes - 1, pagoDia);  // pago fue el mes pasado
-    const cicloAntYaPago = hoy >= diaPagoCicloAnt;
-
+    // Gastos directos con fecha de cargo DESPUES del ultimo pago realizado = pendientes
     const directos = (gastosAll || []).filter(g => g.metodo === tId && !g.esCuota);
-
-    const sumActual = directos
-      .filter(g => { const d = new Date(g.fecha); return d >= inicioActual && d <= hoy; })
+    return directos
+      .filter(g => new Date(g.fecha) > ultimoPagoYaRealizado)
       .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
-
-    const sumAnterior = cicloAntYaPago ? 0 : directos
-      .filter(g => { const d = new Date(g.fecha); return d >= inicioCicloAnt && d < inicioActual; })
-      .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
-
-    return sumActual + sumAnterior;
   };
 
   const totalDeudaCuotas = cuotas.reduce((s,c) => {
@@ -82,7 +71,7 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
     return s + rest * (parseFloat(c.cuota)||0);
   }, 0);
 
-  const lineaUsada = calcLineaUsada(tarjetaId, tarjeta.cierre, tarjeta.pagoDia, gastos) + totalDeudaCuotas;
+  const lineaUsada = calcLineaUsada(tarjetaId, tarjeta.pagoDia, gastos) + totalDeudaCuotas;
   const lineaLibre     = Math.max(0, tarjeta.lineaCredito - lineaUsada);
   const pctUsado       = tarjeta.lineaCredito > 0 ? (lineaUsada / tarjeta.lineaCredito) * 100 : 0;
   const diasPago       = diasPara(tarjeta.pagoDia);
