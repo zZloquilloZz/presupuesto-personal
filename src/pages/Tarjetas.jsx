@@ -75,8 +75,17 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas }) {
             </div>
           ) : (
             cuotas.map((c,i) => {
-              const restantes = Math.max(0, (parseInt(c.totalCuotas)||0) - (parseInt(c.pagadas)||0));
-              const pct       = parseInt(c.totalCuotas)>0 ? (parseInt(c.pagadas)/parseInt(c.totalCuotas))*100 : 0;
+              const hoyT = new Date();
+              const mesActualT = hoyT.getMonth() + 1;
+              const anioActualT = hoyT.getFullYear();
+              const anioInicio = c.anioPrimerPago || anioActualT;
+              const mesInicio  = c.mesPrimerPago  || mesActualT;
+              const pagadasAuto = Math.min(
+                Math.max((anioActualT - anioInicio)*12 + (mesActualT - mesInicio) + 1, parseInt(c.pagadas)||0),
+                parseInt(c.totalCuotas)||0
+              );
+              const restantes = Math.max(0, (parseInt(c.totalCuotas)||0) - pagadasAuto);
+              const pct       = parseInt(c.totalCuotas)>0 ? (pagadasAuto/parseInt(c.totalCuotas))*100 : 0;
               const deudaRest = restantes * parseFloat(c.cuota||0);
               const liquidada = restantes <= 0;
               const totalPago = parseFloat(c.cuota||0) * parseInt(c.totalCuotas||0);

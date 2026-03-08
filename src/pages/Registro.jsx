@@ -24,6 +24,139 @@ const EMPTY_FORM = {
   fechaCompra: HOY, // fecha real de la compra para calcular ciclo
 };
 
+// ── Pagos Fijos Panel ────────────────────────────────────────────────────────
+function PagosFijosPanel({ state, dispatch, fijoForm, setFijoForm, fijoError, setFijoError }) {
+  const CATEGORIAS_LOCAL = [
+    { id:"alimentacion", label:"Alimentacion", emoji:"🍔", color:"var(--orange)" },
+    { id:"transporte",   label:"Transporte",   emoji:"🚗", color:"var(--blue)"   },
+    { id:"salud",        label:"Salud",        emoji:"💊", color:"var(--red)"    },
+    { id:"entretenimiento", label:"Entret.",   emoji:"🎮", color:"var(--purple)" },
+    { id:"educacion",    label:"Educacion",    emoji:"📚", color:"var(--yellow)" },
+    { id:"hogar",        label:"Hogar",        emoji:"🏠", color:"var(--green)"  },
+    { id:"ropa",         label:"Ropa",         emoji:"👕", color:"var(--pink)"   },
+    { id:"otros",        label:"Otros",        emoji:"📦", color:"var(--text-muted)" },
+  ];
+  const METODOS_LOCAL = [
+    { id:"debito",   label:"Debito",   color:"var(--green)"  },
+    { id:"bcp",      label:"BCP Visa", color:"var(--blue)"   },
+    { id:"amex",     label:"AMEX",     color:"var(--orange)" },
+    { id:"efectivo", label:"Efectivo", color:"var(--yellow)" },
+  ];
+  const getCat = id => CATEGORIAS_LOCAL.find(c => c.id === id) || CATEGORIAS_LOCAL[CATEGORIAS_LOCAL.length-1];
+  const getMet  = id => METODOS_LOCAL.find(m => m.id === id)  || METODOS_LOCAL[0];
+  const sf = (k,v) => setFijoForm(f => ({...f, [k]:v}));
+
+  const handleAdd = () => {
+    if (!fijoForm.descripcion.trim()) return setFijoError("Ingresa una descripcion");
+    if (!fijoForm.monto || isNaN(fijoForm.monto) || parseFloat(fijoForm.monto) <= 0) return setFijoError("Ingresa un monto valido");
+    if (!fijoForm.dia || parseInt(fijoForm.dia) < 1 || parseInt(fijoForm.dia) > 31) return setFijoError("Dia debe ser entre 1 y 31");
+    setFijoError("");
+    dispatch({ type: "ADD_GASTO_FIJO", payload: {
+      descripcion: fijoForm.descripcion.trim(),
+      monto:       parseFloat(fijoForm.monto),
+      dia:         parseInt(fijoForm.dia),
+      categoria:   fijoForm.categoria,
+      metodo:      fijoForm.metodo,
+    }});
+    setFijoForm({ descripcion:"", monto:"", dia:"", categoria:"otros", metodo:"debito" });
+  };
+
+  return (
+    <div>
+      {/* Info banner */}
+      <div style={{ marginBottom:12, padding:"10px 14px", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)" }}>
+        <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600, marginBottom:3 }}>Pagos Fijos Mensuales</div>
+        <div style={{ fontSize:9, color:"var(--text-dim)", lineHeight:1.6 }}>
+          Pagos que se repiten todos los meses sin fecha de fin: alquiler, streaming, pension, etc.
+          Se muestran en el Dashboard como compromisos del mes.
+        </div>
+      </div>
+
+      {/* Formulario */}
+      <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:"14px 16px", marginBottom:12 }}>
+        <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Nuevo pago fijo</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 100px 60px", gap:8, marginBottom:8 }}>
+          <div>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Descripcion</div>
+            <input placeholder="Ej: Netflix, Alquiler..." value={fijoForm.descripcion}
+              onChange={e=>sf("descripcion",e.target.value)}
+              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+          </div>
+          <div>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Monto S/.</div>
+            <input type="number" min="0" step="0.01" placeholder="0.00" value={fijoForm.monto}
+              onChange={e=>sf("monto",e.target.value)}
+              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+          </div>
+          <div>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Dia</div>
+            <input type="number" min="1" max="31" placeholder="1" value={fijoForm.dia}
+              onChange={e=>sf("dia",e.target.value)}
+              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+          <div>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Categoria</div>
+            <select value={fijoForm.categoria} onChange={e=>sf("categoria",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+              {CATEGORIAS_LOCAL.map(cat => <option key={cat.id} value={cat.id}>{cat.emoji} {cat.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Metodo de pago</div>
+            <select value={fijoForm.metodo} onChange={e=>sf("metodo",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+              {METODOS_LOCAL.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </div>
+        </div>
+        {fijoError && <div style={{ fontSize:9, color:"var(--red)", marginBottom:8 }}>{fijoError}</div>}
+        <button onClick={handleAdd} style={{
+          background:"linear-gradient(135deg,#22C55E,#4ADE80)", border:"none",
+          borderRadius:"var(--radius-sm)", color:"#0A0C10",
+          fontFamily:"var(--font-sans)", fontSize:10, fontWeight:800,
+          padding:"9px 20px", cursor:"pointer", letterSpacing:"0.06em", textTransform:"uppercase",
+        }}>+ Agregar Pago Fijo</button>
+      </div>
+
+      {/* Lista */}
+      {state.gastosFijos.length === 0 ? (
+        <div style={{ padding:"32px 20px", textAlign:"center", background:"var(--bg-card)", border:"1px dashed var(--border)", borderRadius:"var(--radius-lg)", color:"var(--text-ghost)" }}>
+          <div style={{ fontSize:20, marginBottom:8, opacity:.3 }}>📋</div>
+          <div style={{ fontFamily:"var(--font-sans)", fontSize:12 }}>Sin pagos fijos aun</div>
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {state.gastosFijos.map((f, i) => {
+            const cat = getCat(f.categoria);
+            const met = getMet(f.metodo);
+            return (
+              <div key={f.id||i} className="fade-up" style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
+                <div style={{ width:34, height:34, borderRadius:"var(--radius-sm)", background:cat.color+"18", border:`1px solid ${cat.color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{cat.emoji}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:"var(--text-primary)", marginBottom:3 }}>{f.descripcion}</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    <Badge color={cat.color}>{cat.label}</Badge>
+                    <Badge color={met.color}>{met.label}</Badge>
+                    <Badge color="var(--text-ghost)">Dia {f.dia}</Badge>
+                  </div>
+                </div>
+                <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color:"var(--text-primary)", fontWeight:500 }}>S/. {fmt(f.monto)}</div>
+                <button onClick={() => dispatch({ type:"DELETE_GASTO_FIJO", id:f.id })}
+                  style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px", transition:"color .15s" }}
+                  onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
+              </div>
+            );
+          })}
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 12px", borderTop:"1px solid var(--border)", marginTop:2 }}>
+            <span style={{ fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, color:"var(--text-ghost)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{state.gastosFijos.length} pagos fijos</span>
+            <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--text-primary)" }}>S/. {fmt(state.gastosFijos.reduce((s,f)=>s+(parseFloat(f.monto)||0),0))}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Calcula cuota con TEA: C = P*(TEM*(1+TEM)^n)/((1+TEM)^n-1)
 function calcCuota(monto, n, tea) {
   if (!monto || !n || n <= 0) return 0;
@@ -55,6 +188,8 @@ export default function Registro() {
   const [filtroCat, setFiltroCat] = useState("todas");
   const [filtroMet, setFiltroMet] = useState("todos");
   const [tabVista, setTabVista]   = useState("gastos");
+  const [fijoForm, setFijoForm]   = useState({ descripcion:"", monto:"", dia:"", categoria:"otros", metodo:"debito" });
+  const [fijoError, setFijoError] = useState("");
 
   const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: null })); };
 
@@ -214,7 +349,7 @@ export default function Registro() {
 
         {/* Tabs */}
         <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3, width:"fit-content" }}>
-          {[{k:"gastos",l:"Gastos del mes"},{k:"recurrentes",l:`Recurrentes (${state.gastosRecurrentes.length})`}].map(t => (
+          {[{k:"gastos",l:"Gastos del mes"},{k:"recurrentes",l:`Recurrentes (${state.gastosRecurrentes.length})`},{k:"fijos",l:`Pagos Fijos (${state.gastosFijos.length})`}].map(t => (
             <button key={t.k} onClick={() => setTabVista(t.k)} style={{
               background: tabVista===t.k ? "var(--bg-hover)" : "transparent",
               border: tabVista===t.k ? "1px solid var(--green)" : "1px solid transparent",
@@ -230,7 +365,9 @@ export default function Registro() {
           {/* Contenido principal */}
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
 
-            {tabVista === "recurrentes" ? (
+            {tabVista === "fijos" ? (
+              <PagosFijosPanel state={state} dispatch={dispatch} fijoForm={fijoForm} setFijoForm={setFijoForm} fijoError={fijoError} setFijoError={setFijoError}/>
+            ) : tabVista === "recurrentes" ? (
               <div>
                 <div style={{ marginBottom:12, padding:"10px 14px", background:"var(--yellow-bg)", border:"1px solid var(--yellow-border)", borderRadius:"var(--radius-md)" }}>
                   <div style={{ fontSize:10, color:"var(--yellow)", fontFamily:"var(--font-sans)", fontWeight:600, marginBottom:3 }}>¿Como funciona?</div>

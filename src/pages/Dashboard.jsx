@@ -19,8 +19,6 @@ export default function Dashboard() {
   const ejsRef = useRef(false);
 
   const { state, dispatch } = useApp();
-  const [showFijosEditor, setShowFijosEditor] = useState(false);
-  const [fijoForm, setFijoForm] = useState({ descripcion:"", monto:"", dia:"" });
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
   const cuotasMes = useCuotasMes(); // cuotas de tarjeta del mes actual
@@ -338,54 +336,20 @@ export default function Dashboard() {
         </div>
 
         {/* Editor de gastos fijos */}
-        <Card style={{ borderColor: showFijosEditor ? "var(--yellow-border)" : "var(--border)" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: showFijosEditor || state.gastosFijos.length > 0 ? 14 : 0 }}>
-            <div>
-              <SectionTitle style={{ marginBottom:2 }}>Compromisos fijos mensuales</SectionTitle>
-              {state.gastosFijos.length === 0 && !showFijosEditor && (
-                <div style={{ fontSize:9, color:"var(--text-ghost)" }}>Pension, servicios, pagos tarjeta...</div>
-              )}
-            </div>
-            <button onClick={() => setShowFijosEditor(!showFijosEditor)} style={{
-              background: showFijosEditor ? "var(--yellow-bg)" : "var(--bg-input)",
-              border:`1px solid ${showFijosEditor ? "var(--yellow)" : "var(--border)"}`,
-              borderRadius:"var(--radius-sm)", color: showFijosEditor ? "var(--yellow)" : "var(--text-muted)",
-              fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700,
-              padding:"5px 12px", cursor:"pointer", letterSpacing:"0.08em", textTransform:"uppercase",
-            }}>{showFijosEditor ? "Cerrar" : "+ Agregar"}</button>
+        <Card>
+          <div style={{ marginBottom: state.gastosFijos.length > 0 ? 14 : 0 }}>
+            <SectionTitle style={{ marginBottom:2 }}>Compromisos fijos mensuales</SectionTitle>
+            {state.gastosFijos.length === 0 && (
+              <div style={{ fontSize:9, color:"var(--text-ghost)" }}>Pension, servicios, pagos tarjeta...</div>
+            )}
           </div>
 
-          {/* Formulario nuevo fijo */}
-          {showFijosEditor && (
-            <div className="slide-in" style={{ display:"grid", gridTemplateColumns:"1fr 100px 70px auto", gap:8, marginBottom:14, alignItems:"end" }}>
-              <div>
-                <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Descripcion</div>
-                <input placeholder="Ej: Netflix, Pension..." value={fijoForm.descripcion} onChange={e => setFijoForm(f => ({...f, descripcion: e.target.value}))} style={{ padding:"8px 10px", fontSize:11 }}/>
-              </div>
-              <div>
-                <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Monto S/.</div>
-                <input type="number" min="0" step="0.01" placeholder="0.00" value={fijoForm.monto} onChange={e => setFijoForm(f => ({...f, monto: e.target.value}))} style={{ padding:"8px 10px", fontSize:11 }}/>
-              </div>
-              <div>
-                <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Dia vence</div>
-                <input type="number" min="1" max="31" placeholder="1" value={fijoForm.dia} onChange={e => setFijoForm(f => ({...f, dia: e.target.value}))} style={{ padding:"8px 10px", fontSize:11 }}/>
-              </div>
-              <button
-                onClick={() => {
-                  if (!fijoForm.descripcion.trim() || !fijoForm.monto) return;
-                  dispatch({ type:"ADD_GASTO_FIJO", payload: { descripcion: fijoForm.descripcion.trim(), monto: parseFloat(fijoForm.monto), dia: parseInt(fijoForm.dia) || 1 } });
-                  setFijoForm({ descripcion:"", monto:"", dia:"" });
-                }}
-                style={{ background:"linear-gradient(135deg,#22C55E,#4ADE80)", border:"none", borderRadius:"var(--radius-sm)", color:"#0A0C10", fontFamily:"var(--font-sans)", fontSize:10, fontWeight:800, padding:"8px 14px", cursor:"pointer", letterSpacing:"0.06em", textTransform:"uppercase", whiteSpace:"nowrap" }}>
-                + Agregar
-              </button>
-            </div>
-          )}
 
-          {/* Lista gastos fijos */}
-          {state.gastosFijos.length === 0 ? (
+
+          {/* Lista gastos fijos + deudas */}
+          {state.gastosFijos.length === 0 && (!state.deudas || state.deudas.length === 0) ? (
             <div style={{ padding:"20px 0", textAlign:"center", color:"var(--text-ghost)" }}>
-              <div style={{ fontSize:11, fontFamily:"var(--font-sans)" }}>Sin compromisos fijos — agrega tus pagos mensuales recurrentes</div>
+              <div style={{ fontSize:11, fontFamily:"var(--font-sans)" }}>Sin compromisos fijos aun — agrega desde la seccion Deudas o Ingresos</div>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -403,18 +367,23 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color: urgente ? "var(--yellow)" : "var(--text-primary)" }}>S/. {fmt(f.monto)}</span>
-                      <button onClick={() => dispatch({ type:"DELETE_GASTO_FIJO", id: f.id })}
-                        style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:12, padding:"2px 5px", transition:"color .15s" }}
-                        onMouseOver={e => e.target.style.color="var(--red)"} onMouseOut={e => e.target.style.color="var(--text-ghost)"}>✕</button>
-                    </div>
+                    <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color: urgente ? "var(--yellow)" : "var(--text-primary)" }}>S/. {fmt(f.monto)}</span>
                   </div>
                 );
               })}
+              {/* Deudas activas como compromisos */}
+              {(state.deudas||[]).filter(d => d.cuotaMensual > 0).map((d, i) => (
+                <div key={d.id||i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", background:"var(--bg-input)", border:"1px solid var(--red-border)", borderRadius:"var(--radius-sm)" }}>
+                  <div>
+                    <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:600, color:"var(--text-primary)" }}>{d.descripcion || d.nombre}</div>
+                    <div style={{ fontSize:9, color:"var(--red)", marginTop:1 }}>Deuda — cuota mensual</div>
+                  </div>
+                  <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--red)" }}>S/. {fmt(d.cuotaMensual)}</span>
+                </div>
+              ))}
               <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 12px", borderTop:"1px solid var(--border)", marginTop:2 }}>
-                <span style={{ fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, color:"var(--text-ghost)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{state.gastosFijos.length} compromisos</span>
-                <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--yellow)" }}>S/. {fmt(totalFijos)}</span>
+                <span style={{ fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, color:"var(--text-ghost)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length} compromisos</span>
+                <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--yellow)" }}>S/. {fmt(totalFijos + (state.deudas||[]).filter(d=>d.cuotaMensual>0).reduce((s,d)=>s+(parseFloat(d.cuotaMensual)||0),0))}</span>
               </div>
             </div>
           )}

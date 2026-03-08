@@ -62,13 +62,29 @@ export const db = {
         .eq("user_id", userId)
         .order("dia");
       check(error);
-      return data;
+      return (data || []).map(r => ({
+        id:          r.id,
+        descripcion: r.descripcion,
+        monto:       r.monto,
+        dia:         r.dia,
+        categoria:   r.categoria || "otros",
+        metodo:      r.metodo    || "debito",
+        notas:       r.notas     || "",
+      }));
     },
 
     async add(userId, fijo) {
       const { data, error } = await supabase
         .from("gastos_fijos")
-        .insert({ ...fijo, user_id: userId })
+        .insert({
+          user_id:     userId,
+          descripcion: fijo.descripcion,
+          monto:       fijo.monto,
+          dia:         fijo.dia,
+          categoria:   fijo.categoria || "otros",
+          metodo:      fijo.metodo    || "debito",
+          notas:       fijo.notas     || "",
+        })
         .select()
         .single();
       check(error);
