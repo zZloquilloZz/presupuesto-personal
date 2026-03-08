@@ -171,7 +171,9 @@ function calcCuota(monto, n, tea) {
 // Calcula en qué mes/año empieza el primer pago según el ciclo de la tarjeta
 function getPrimerPago(fechaCompra, cierreDia) {
   const [anio, mes, dia] = fechaCompra.split("-").map(Number);
-  let mesPago = dia <= cierreDia ? mes + 1 : mes + 2;
+  // Compra ANTES del cierre → entra en este ciclo → pago mes+1
+  // Compra EN el cierre o DESPUÉS → va al siguiente ciclo → pago mes+2
+  let mesPago = dia < cierreDia ? mes + 1 : mes + 2;
   let anioPago = anio;
   if (mesPago > 12) { mesPago -= 12; anioPago += 1; }
   return { anio: anioPago, mes: mesPago }; // mes 1-indexed
