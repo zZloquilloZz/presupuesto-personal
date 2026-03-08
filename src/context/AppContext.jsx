@@ -203,8 +203,14 @@ export function AppProvider({ children }) {
           break;
 
         case "ADD_GASTO_FIJO": {
-          const saved = await db.gastosFijos.add(user.id, action.payload);
-          localDispatch({ type: "UPDATE_GASTO_FIJO", tempId: action.payload.id, payload: saved });
+          console.log("[FIJO] Intentando guardar:", action.payload);
+          try {
+            const saved = await db.gastosFijos.add(user.id, action.payload);
+            console.log("[FIJO] Guardado OK:", saved);
+            localDispatch({ type: "UPDATE_GASTO_FIJO", tempId: action.payload.id, payload: saved });
+          } catch(e) {
+            console.error("[FIJO] ERROR al guardar:", e);
+          }
           break;
         }
         case "DELETE_GASTO_FIJO":
