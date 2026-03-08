@@ -225,10 +225,11 @@ export default function Registro() {
     const e = {};
     if (!form.descripcion.trim()) e.descripcion = "Requerido";
     if (!form.monto || parseFloat(form.monto) <= 0) e.monto = "Ingresa un monto valido";
-    if (!form.fecha) e.fecha = "Requerido";
+    if (!form.esCuota && !form.fecha) e.fecha = "Requerido";
     if (form.esCuota) {
       if (!form.totalCuotas || parseInt(form.totalCuotas) < 2) e.totalCuotas = "Minimo 2 cuotas";
       if (!tarjetaActiva) e.metodo = "Selecciona BCP o AMEX para cuotas";
+      if (!form.fechaCompra) e.fechaCompra = "Requerido";
     }
     return e;
   };
@@ -238,7 +239,14 @@ export default function Registro() {
     if (Object.keys(e).length) { setErrors(e); return; }
 
     if (editId) {
-      dispatch({ type:"UPDATE_GASTO", id: editId, payload: { ...form, monto: parseFloat(form.monto) } });
+      dispatch({ type:"UPDATE_GASTO", id: editId, payload: {
+        descripcion: form.descripcion,
+        categoria:   form.categoria,
+        monto:       parseFloat(form.monto),
+        metodo:      form.metodo,
+        fecha:       form.fecha,
+        notas:       form.notas || "",
+      } });
       setEditId(null);
     } else if (form.esCuota && cuotaPreview) {
       // ── Compra a cuotas — dispatch atomico ───────────────
@@ -261,8 +269,7 @@ export default function Registro() {
           monto:       cuotaMes,
           metodo:      form.metodo,
           fecha:       fechaPrimerPago,
-          notas:       `Compra: ${form.fechaCompra}. Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}`,
-          esCuota:     true,
+          notas:       `Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}`,
         },
         cuota: {
           id:           cuotaId,
@@ -288,7 +295,15 @@ export default function Registro() {
 
     } else {
       // ── Gasto simple ─────────────────────────────────────
-      dispatch({ type:"ADD_GASTO", payload: { ...form, monto: parseFloat(form.monto) } });
+      dispatch({ type:"ADD_GASTO", payload: {
+        id:          uid(),
+        descripcion: form.descripcion,
+        categoria:   form.categoria,
+        monto:       parseFloat(form.monto),
+        metodo:      form.metodo,
+        fecha:       form.fecha,
+        notas:       form.notas || "",
+      } });
       if (form.recurrente) {
         dispatch({ type:"ADD_RECURRENTE", payload: {
           descripcion: form.descripcion,
@@ -497,13 +512,15 @@ export default function Registro() {
                     </div>
                   </Field>
 
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <div style={{ display:"grid", gridTemplateColumns: form.esCuota ? "1fr" : "1fr 1fr", gap:10 }}>
                     <Field label={form.esCuota?"Monto total de la compra (S/.)":"Monto (S/.)"} error={errors.monto}>
                       <input type="number" min="0" step="0.01" placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)} style={errors.monto?{borderColor:"var(--red)"}:{}}/>
                     </Field>
-                    <Field label="Fecha" error={errors.fecha}>
-                      <input type="date" value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
-                    </Field>
+                    {!form.esCuota && (
+                      <Field label="Fecha del gasto" error={errors.fecha}>
+                        <input type="date" value={form.fecha} onChange={e=>sf("fecha",e.target.value)}/>
+                      </Field>
+                    )}
                   </div>
 
                   <Field label="Metodo de pago" error={errors.metodo}>
@@ -564,7 +581,7 @@ export default function Registro() {
                           </div>
 
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                            <Field label="Fecha de compra real">
+                            <Field label="¿Cuándo compraste?">
                               <input type="date" value={form.fechaCompra} onChange={e=>sf("fechaCompra",e.target.value)}/>
                             </Field>
                             <Field label="Cuotas ya pagadas">

@@ -26,9 +26,19 @@ export const db = {
     },
 
     async add(userId, gasto) {
+      // Whitelist: solo columnas validas de la tabla gastos
+      const payload = {
+        user_id:     userId,
+        descripcion: gasto.descripcion,
+        categoria:   gasto.categoria,
+        monto:       gasto.monto,
+        metodo:      gasto.metodo,
+        fecha:       gasto.fecha,
+        notas:       gasto.notas || "",
+      };
       const { data, error } = await supabase
         .from("gastos")
-        .insert({ ...gasto, user_id: userId })
+        .insert(payload)
         .select()
         .single();
       check(error);

@@ -296,12 +296,14 @@ export function AppProvider({ children }) {
           });
           // Cuota en tarjeta — solo campos del schema
           await db.cuotas.add(user.id, tarjetaId, {
-            desc:        cuota.desc,
-            montoTotal:  cuota.montoTotal,
-            cuota:       cuota.cuota,
-            totalCuotas: cuota.totalCuotas,
-            pagadas:     cuota.pagadas,
-            conInteres:  cuota.conInteres,
+            desc:           cuota.desc,
+            montoTotal:     cuota.montoTotal,
+            cuota:          cuota.cuota,
+            totalCuotas:    cuota.totalCuotas,
+            pagadas:        cuota.pagadas,
+            conInteres:     cuota.conInteres,
+            mesPrimerPago:  cuota.mesPrimerPago  || null,
+            anioPrimerPago: cuota.anioPrimerPago || null,
           });
           // Recargar todo para tener IDs de Supabase
           const [tarjetas, gastos, gastosRecurrentes] = await Promise.all([

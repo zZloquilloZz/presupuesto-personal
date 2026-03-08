@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { useApp, useGastosMes, useIngresoDisponible, useCuotasMes } from "../context/AppContext";
+import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
 import { CATEGORIAS, TARJETAS, EMAILJS, MESES } from "../constants";
 import { fmt, diasPara, periodoActual, agruparPorCategoria } from "../utils";
 import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader, Badge, EmptyState } from "../components/UI";
@@ -21,7 +21,6 @@ export default function Dashboard() {
   const { state, dispatch } = useApp();
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
-  const cuotasMes = useCuotasMes(); // cuotas de tarjeta del mes actual
   const periodo   = periodoActual();
 
   // Carga EmailJS una sola vez al montar
@@ -41,42 +40,19 @@ export default function Dashboard() {
   const totalAlertaMonto = alertas.reduce((s,a) => s + a.monto, 0);
 
   // ── Calculos del mes ──────────────────────────────
-  const gastosDirectos = gastosMes.filter(g => !g.esCuota);
-  const totalGastosDirectos = gastosDirectos.reduce((s,g) => s + g.monto, 0);
-  const totalGastos  = totalGastosDirectos + cuotasMes;
+  const gastosDirectos = gastosMes;
+  const totalGastos  = gastosMes.reduce((s,g) => s + g.monto, 0);
   const totalDeudas  = (state.deudas||[]).filter(d => d.cuotaMensual > 0).reduce((s,d) => s + (parseFloat(d.cuotaMensual)||0), 0);
   const totalFijosSolo = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
   const totalFijos   = totalFijosSolo + totalDeudas;
 
-  // Entradas sinteticas de cuotas para graficos (misma logica que useCuotasMes)
-  const hoyG = new Date();
-  const mesActualG = hoyG.getMonth() + 1;
-  const anioActualG = hoyG.getFullYear();
-  const diaHoyG = hoyG.getDate();
-  const cuotasParaGrafico = [];
-  ["bcp","amex"].forEach(t => {
-    const tarjetaInfoG = t === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
-    const pagoDiaG = tarjetaInfoG.pagoDia;
-    (state.tarjetas?.[t]?.cuotasActivas || []).forEach(c => {
-      const anioInicio = c.anioPrimerPago || anioActualG;
-      const mesInicio  = c.mesPrimerPago  || mesActualG;
-      const diffMeses  = (anioActualG - anioInicio) * 12 + (mesActualG - mesInicio);
-      const numeroCuota = diffMeses + 1;
-      const numeroCuotaSig = diffMeses + 2;
-      const totalC = parseInt(c.totalCuotas)||0;
-      const activa = (numeroCuota >= 1 && numeroCuota <= totalC && diaHoyG < pagoDiaG)
-                  || (numeroCuotaSig >= 1 && numeroCuotaSig <= totalC && diaHoyG >= pagoDiaG);
-      if (activa) {
-        cuotasParaGrafico.push({ descripcion: c.desc, categoria: "otros", monto: parseFloat(c.cuota)||0, metodo: t });
-      }
-    });
-  });
-  const gastosParaGrafico = [...gastosDirectos, ...cuotasParaGrafico];
+  // Todos los gastos del mes (directos + recurrentes aplicados este mes)
+  // gastosMes ya contiene los recurrentes que se auto-aplicaron con fecha de este mes
+  const gastosParaGrafico = gastosMes;
 
-  // Metodo de pago: solo gastos directos del mes + cuotas del mes actual (no acumuladas)
-  const gastosMetodo  = [...gastosDirectos, ...cuotasParaGrafico];
-  const totalCredito  = gastosMetodo.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
-  const totalDebito   = gastosMetodo.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
+  // Metodo de pago: todos los gastos reales del mes
+  const totalCredito  = gastosMes.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
+  const totalDebito   = gastosMes.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
   // Ingreso disponible = mes anterior (ya depositado)
   const ingresoBase    = ingresoAnterior?.neto ?? 0;
   const hayIngresos    = ingresoBase > 0;
@@ -85,7 +61,7 @@ export default function Dashboard() {
   // Label para el KPI
   const hoyRef = new Date();
   const mesRef = hoyRef.getMonth() === 0 ? 11 : hoyRef.getMonth() - 1;
-  const hayGastos    = gastosParaGrafico.length > 0;
+  const hayGastos    = gastosMes.length > 0;
 
   // Grafico de torta
   const pieData = agruparPorCategoria(gastosParaGrafico, CATEGORIAS);
