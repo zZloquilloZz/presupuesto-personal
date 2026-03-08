@@ -229,21 +229,41 @@ export default function Dashboard() {
         {/* Ciclos de tarjetas */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
           {Object.values(TARJETAS).map(t => {
-            const cuotasT    = state.tarjetas?.[t.id]?.cuotasActivas || [];
-            // Deuda real = cuotas pendientes restantes × monto cuota (descontando las ya pagadas auto)
-            const hoyD = new Date();
-            const mesD = hoyD.getMonth() + 1;
+            const cuotasT = state.tarjetas?.[t.id]?.cuotasActivas || [];
+            const hoyD  = new Date();
+            const diaD  = hoyD.getDate();
+            const mesD  = hoyD.getMonth();
             const anioD = hoyD.getFullYear();
-            const usado = cuotasT.reduce((s,c) => {
+
+            // Ciclo actual e inicio ciclo anterior
+            const inicioActualD = diaD >= t.cierre
+              ? new Date(anioD, mesD, t.cierre)
+              : new Date(anioD, mesD - 1, t.cierre);
+            const inicioCicloAntD = new Date(inicioActualD.getFullYear(), inicioActualD.getMonth() - 1, t.cierre);
+            const diaPagoAntD = diaD >= t.cierre
+              ? new Date(anioD, mesD, t.pagoDia)
+              : new Date(anioD, mesD - 1, t.pagoDia);
+            const cicloAntPagadoD = hoyD >= diaPagoAntD;
+
+            const directos = state.gastos.filter(g => g.metodo === t.id && !g.esCuota);
+            const sumActualD = directos
+              .filter(g => { const d = new Date(g.fecha); return d >= inicioActualD && d <= hoyD; })
+              .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+            const sumAnteriorD = cicloAntPagadoD ? 0 : directos
+              .filter(g => { const d = new Date(g.fecha); return d >= inicioCicloAntD && d < inicioActualD; })
+              .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+
+            const deudaCuotas = cuotasT.reduce((s,c) => {
               const anioIni = c.anioPrimerPago || anioD;
-              const mesIni  = c.mesPrimerPago  || mesD;
+              const mesIni  = (c.mesPrimerPago || (mesD + 1));
               const pagAuto = Math.min(
-                Math.max((anioD - anioIni)*12 + (mesD - mesIni) + 1, parseInt(c.pagadas)||0),
+                Math.max((anioD - anioIni)*12 + (mesD + 1 - mesIni) + 1, parseInt(c.pagadas)||0),
                 parseInt(c.totalCuotas)||0
               );
               const rest = Math.max(0, (parseInt(c.totalCuotas)||0) - pagAuto);
               return s + rest * (parseFloat(c.cuota)||0);
             }, 0);
+            const usado = sumActualD + sumAnteriorD + deudaCuotas;
             const disponible = t.lineaCredito - usado;
             const pctUsado   = t.lineaCredito > 0 ? (usado / t.lineaCredito) * 100 : 0;
             const diasP      = diasPara(t.pagoDia);

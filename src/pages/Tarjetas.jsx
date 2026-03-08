@@ -23,11 +23,13 @@ const CRONOGRAMA_BCP = [
 ];
 const MES_ACTUAL = new Date().getMonth();
 
-function PanelTarjeta({ tarjetaId, tarjeta, cuotas }) {
-  // Calcular pagadas automaticamente segun mes actual
-  const hoyT2 = new Date();
+function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
+  const hoyT2        = new Date();
   const mesActualT2  = hoyT2.getMonth() + 1;
   const anioActualT2 = hoyT2.getFullYear();
+  const diaHoyT2     = hoyT2.getDate();
+
+  // Pagadas automaticas segun mes actual
   const calcPagadasAuto = (cuota) => {
     const anioInicio = cuota.anioPrimerPago || anioActualT2;
     const mesInicio  = cuota.mesPrimerPago  || mesActualT2;
@@ -35,17 +37,52 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas }) {
     return Math.min(Math.max(diff, parseInt(cuota.pagadas)||0), parseInt(cuota.totalCuotas)||0);
   };
   const totalCuotasMes = cuotas.reduce((s,c) => {
-    const pAuto = calcPagadasAuto(c);
+    const pAuto  = calcPagadasAuto(c);
     const totalC = parseInt(c.totalCuotas)||0;
-    // Solo suma si aun hay cuotas pendientes
     return pAuto < totalC ? s + (parseFloat(c.cuota)||0) : s;
   }, 0);
-  const totalDeuda = cuotas.reduce((s,c) => {
+
+  // Linea usada = ciclo anterior (si aun no se pago) + ciclo actual en curso + deuda cuotas
+  const calcLineaUsada = (tId, cierreDia, pagoDia, gastosAll) => {
+    const hoy  = new Date();
+    const dia  = hoy.getDate();
+    const mes  = hoy.getMonth();
+    const anio = hoy.getFullYear();
+
+    // Inicio del ciclo actual
+    const inicioActual = dia >= cierreDia
+      ? new Date(anio, mes, cierreDia)
+      : new Date(anio, mes - 1, cierreDia);
+
+    // Inicio del ciclo anterior
+    const inicioCicloAnt = new Date(inicioActual.getFullYear(), inicioActual.getMonth() - 1, cierreDia);
+
+    // Dia de pago del ciclo anterior
+    const diaPagoCicloAnt = dia >= cierreDia
+      ? new Date(anio, mes, pagoDia)       // pago es este mes
+      : new Date(anio, mes - 1, pagoDia);  // pago fue el mes pasado
+    const cicloAntYaPago = hoy >= diaPagoCicloAnt;
+
+    const directos = (gastosAll || []).filter(g => g.metodo === tId && !g.esCuota);
+
+    const sumActual = directos
+      .filter(g => { const d = new Date(g.fecha); return d >= inicioActual && d <= hoy; })
+      .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+
+    const sumAnterior = cicloAntYaPago ? 0 : directos
+      .filter(g => { const d = new Date(g.fecha); return d >= inicioCicloAnt && d < inicioActual; })
+      .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+
+    return sumActual + sumAnterior;
+  };
+
+  const totalDeudaCuotas = cuotas.reduce((s,c) => {
     const pAuto = calcPagadasAuto(c);
-    const rest   = Math.max(0, (parseInt(c.totalCuotas)||0) - pAuto);
+    const rest  = Math.max(0, (parseInt(c.totalCuotas)||0) - pAuto);
     return s + rest * (parseFloat(c.cuota)||0);
   }, 0);
-  const lineaUsada     = totalDeuda;
+
+  const lineaUsada = calcLineaUsada(tarjetaId, tarjeta.cierre, tarjeta.pagoDia, gastos) + totalDeudaCuotas;
   const lineaLibre     = Math.max(0, tarjeta.lineaCredito - lineaUsada);
   const pctUsado       = tarjeta.lineaCredito > 0 ? (lineaUsada / tarjeta.lineaCredito) * 100 : 0;
   const diasPago       = diasPara(tarjeta.pagoDia);
@@ -201,6 +238,7 @@ export default function GestionTarjetas() {
   const [tab, setTab] = useState("bcp");
   const tarjeta = tab === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
   const cuotas  = state.tarjetas?.[tab]?.cuotasActivas || [];
+  const gastos  = state.gastos || [];
 
   return (
     <div>
@@ -218,7 +256,7 @@ export default function GestionTarjetas() {
         </div>
       </PageHeader>
       <div className="page-container">
-        <PanelTarjeta tarjetaId={tab} tarjeta={tarjeta} cuotas={cuotas}/>
+        <PanelTarjeta tarjetaId={tab} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos}/>
       </div>
     </div>
   );
