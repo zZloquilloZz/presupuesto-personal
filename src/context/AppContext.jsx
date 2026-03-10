@@ -1,37 +1,46 @@
-// AppContext.jsx — estado global conectado a Supabase
-// dispatch() actualiza UI inmediatamente Y persiste en Supabase en segundo plano
+// AppContext.jsx — estado global conectado a Supabase (schema normalizado 3FN)
 
 import { createContext, useContext, useReducer, useEffect } from "react";
 import { useAuth } from "./AuthContext";
 import { db } from "../db";
-import { SUELDO, TARJETAS } from "../constants";
+import { SUELDO } from "../constants";
 
 const INITIAL_STATE = {
+  // Catálogos (globales, cargados una vez)
+  categorias:    [],
+  metodos:       [],
+  bancos:        [],
+  tiposDeuda:    [],
+  // Datos del usuario
+  tarjetasCredito:   [],   // Array de tarjetas del usuario
+  cuotas:            {},   // { [tarjetaId]: { tarjeta, cuotasActivas: [] } }
   gastos:            [],
-  gastosRecurrentes: [],
   gastosFijos:       [],
-  presupuestos: {
-    alimentacion: 0, transporte: 0, entrete: 0, salud: 0,
-    educacion: 0, hogar: 0, ropa: 0, servicios: 0, otros: 0,
-  },
+  gastosRecurrentes: [],
   historialIngresos: [],
+  presupuestos:      {},
   deudas:            [],
-  tarjetas: {
-    bcp:  { cuotasActivas: [] },
-    amex: { cuotasActivas: [] },
-  },
   config: {
     haberBasico: SUELDO.HABER_BASICO,
     diaDeposito: SUELDO.DIA_DEPOSITO,
   },
 };
 
-// ── Reducer — solo maneja estado local (UI rápida) ──────
 function reducer(state, action) {
   switch (action.type) {
+
     case "HYDRATE":
       return { ...state, ...action.payload };
 
+    // ── Tarjetas ──────────────────────────────────────────
+    case "ADD_TARJETA":
+      return { ...state, tarjetasCredito: [...state.tarjetasCredito, action.payload] };
+    case "UPDATE_TARJETA":
+      return { ...state, tarjetasCredito: state.tarjetasCredito.map(t => t.id === action.id ? action.payload : t) };
+    case "DELETE_TARJETA":
+      return { ...state, tarjetasCredito: state.tarjetasCredito.filter(t => t.id !== action.id) };
+
+    // ── Gastos ────────────────────────────────────────────
     case "ADD_GASTO":
       return { ...state, gastos: [action.payload, ...state.gastos] };
     case "UPDATE_GASTO":
@@ -39,6 +48,7 @@ function reducer(state, action) {
     case "DELETE_GASTO":
       return { ...state, gastos: state.gastos.filter(g => g.id !== action.id) };
 
+    // ── Gastos Fijos ──────────────────────────────────────
     case "ADD_GASTO_FIJO":
       return { ...state, gastosFijos: [...state.gastosFijos, action.payload] };
     case "UPDATE_GASTO_FIJO":
@@ -46,6 +56,7 @@ function reducer(state, action) {
     case "DELETE_GASTO_FIJO":
       return { ...state, gastosFijos: state.gastosFijos.filter(g => g.id !== action.id) };
 
+    // ── Recurrentes ───────────────────────────────────────
     case "ADD_RECURRENTE":
       return { ...state, gastosRecurrentes: [...state.gastosRecurrentes, action.payload] };
     case "DELETE_RECURRENTE":
@@ -53,9 +64,11 @@ function reducer(state, action) {
     case "APLICAR_RECURRENTES":
       return { ...state, gastos: [...(action.nuevos || []), ...state.gastos] };
 
+    // ── Presupuestos ──────────────────────────────────────
     case "SET_PRESUPUESTO":
-      return { ...state, presupuestos: { ...state.presupuestos, [action.categoria]: action.monto } };
+      return { ...state, presupuestos: { ...state.presupuestos, [action.categoriaId]: action.monto } };
 
+    // ── Ingresos ──────────────────────────────────────────
     case "SAVE_INGRESO": {
       const sinEste = state.historialIngresos.filter(
         h => !(h.mesIdx === action.payload.mesIdx && h.anio === action.payload.anio)
@@ -68,6 +81,7 @@ function reducer(state, action) {
       };
     }
 
+    // ── Deudas ────────────────────────────────────────────
     case "ADD_DEUDA":
       return { ...state, deudas: [...state.deudas, action.payload] };
     case "DELETE_DEUDA":
@@ -76,38 +90,32 @@ function reducer(state, action) {
       return {
         ...state,
         deudas: state.deudas.map(d =>
-          d.id === (action.payload?.deudaId || action.deudaId)
+          d.id === action.deudaId
             ? { ...d, pagosRealizados: (d.pagosRealizados || 0) + 1 }
             : d
         ),
       };
 
-    case "UPDATE_TARJETA":
-      return {
-        ...state,
-        tarjetas: {
-          ...state.tarjetas,
-          [action.tarjeta]: { ...state.tarjetas[action.tarjeta], ...action.payload },
-        },
-      };
-
-    // Registra compra a cuotas atomicamente: gasto + cuota en tarjeta + recurrente
+    // ── Cuotas (compra a cuotas atómica) ──────────────────
     case "ADD_CUOTA_COMPRA": {
-      const { gasto, tarjetaId, cuota, recurrente } = action.payload;
-      const cuotasActuales = state.tarjetas?.[tarjetaId]?.cuotasActivas || [];
+      const { gasto, tarjetaId, cuota } = action.payload;
+      const cuotasActuales = state.cuotas?.[tarjetaId]?.cuotasActivas || [];
       return {
         ...state,
-        gastos: [...state.gastos, gasto],
-        gastosRecurrentes: [...state.gastosRecurrentes, recurrente],
-        tarjetas: {
-          ...state.tarjetas,
-          [tarjetaId]: { cuotasActivas: [...cuotasActuales, cuota] },
+        gastos: [gasto, ...state.gastos],
+        cuotas: {
+          ...state.cuotas,
+          [tarjetaId]: {
+            ...state.cuotas?.[tarjetaId],
+            cuotasActivas: [...cuotasActuales, cuota],
+          },
         },
       };
     }
 
+    // ── Config ────────────────────────────────────────────
     case "SET_CONFIG":
-      return { ...state, config: { ...state.config, ...action.payload, bcp: { ...state.config?.bcp, ...action.payload?.bcp }, amex: { ...state.config?.amex, ...action.payload?.amex } } };
+      return { ...state, config: { ...state.config, ...action.payload } };
 
     default:
       return state;
@@ -120,72 +128,70 @@ export function AppProvider({ children }) {
   const { user } = useAuth();
   const [state, localDispatch] = useReducer(reducer, INITIAL_STATE);
 
-  // Cargar datos al iniciar sesion
   useEffect(() => {
     if (!user) { localDispatch({ type: "HYDRATE", payload: INITIAL_STATE }); return; }
+
     Promise.all([
+      db.catalogos.getCategorias(),
+      db.catalogos.getMetodos(),
+      db.catalogos.getBancos(),
+      db.catalogos.getTiposDeuda(),
+      db.tarjetas.getAll(user.id),
+      db.cuotas.getAll(user.id),
       db.gastos.getAll(user.id),
       db.gastosFijos.getAll(user.id),
       db.recurrentes.getAll(user.id),
       db.ingresos.getAll(user.id),
       db.presupuestos.getAll(user.id),
-      db.cuotas.getAll(user.id),
       db.deudas.getAll(user.id),
       db.config.get(user.id),
-    ]).then(([gastos, gastosFijos, gastosRecurrentes, historialIngresos, presupuestos, tarjetas, deudas, config]) => {
-      // Mezclar datos financieros de config con TARJETAS
-      const configFinal = config || INITIAL_STATE.config;
-      if (configFinal.bcp) {
-        TARJETAS.BCP.lineaCredito = configFinal.bcp.lineaCredito;
-        TARJETAS.BCP.cierre       = configFinal.bcp.cierre;
-        TARJETAS.BCP.pagoDia      = configFinal.bcp.pagoDia;
-        TARJETAS.BCP.tea          = configFinal.bcp.tea;
-        TARJETAS.BCP.tcea         = configFinal.bcp.tcea;
-      }
-      if (configFinal.amex) {
-        TARJETAS.AMEX.lineaCredito = configFinal.amex.lineaCredito;
-        TARJETAS.AMEX.cierre       = configFinal.amex.cierre;
-        TARJETAS.AMEX.pagoDia      = configFinal.amex.pagoDia;
-        TARJETAS.AMEX.tea          = configFinal.amex.tea;
-        TARJETAS.AMEX.tcea         = configFinal.amex.tcea;
-      }
+    ]).then(([
+      categorias, metodos, bancos, tiposDeuda,
+      tarjetasCredito, cuotas,
+      gastos, gastosFijos, gastosRecurrentes,
+      historialIngresos, presupuestos, deudas, config,
+    ]) => {
       localDispatch({
         type: "HYDRATE",
         payload: {
+          categorias,
+          metodos,
+          bancos,
+          tiposDeuda,
+          tarjetasCredito,
+          cuotas,
           gastos,
           gastosFijos,
           gastosRecurrentes,
           historialIngresos,
           presupuestos: { ...INITIAL_STATE.presupuestos, ...presupuestos },
-          tarjetas,
           deudas,
-          config: configFinal,
+          config: config || INITIAL_STATE.config,
         },
       });
 
-      // Aplicar recurrentes del mes actual UNA SOLA VEZ tras cargar datos
-      // Guarda: comparar descripcion+mes para evitar duplicados aunque fallen los IDs
+      // Aplicar recurrentes del mes actual una sola vez
       if (gastosRecurrentes.length > 0) {
-        const ahora  = new Date();
-        const mesKey = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}`;
-        const fecha  = ahora.toISOString().slice(0,10);
-        // Gastos ya existentes este mes (por descripcion exacta)
+        const ahora   = new Date();
+        const mesKey  = `${ahora.getFullYear()}-${String(ahora.getMonth()+1).padStart(2,"0")}`;
+        const fecha   = ahora.toISOString().slice(0, 10);
         const gastosEsteMes = new Set(
           gastos
-            .filter(g => g.fecha && g.fecha.slice(0,7) === mesKey)
+            .filter(g => g.fecha?.slice(0, 7) === mesKey)
             .map(g => g.descripcion)
         );
-        // Solo aplicar recurrentes cuya descripcion NO esté ya en este mes
         const pendientes = gastosRecurrentes.filter(r => !gastosEsteMes.has(r.descripcion));
         if (pendientes.length > 0) {
           Promise.all(
             pendientes.map(r => db.gastos.add(user.id, {
+              tarjetaId:   r.tarjetaId || null,
+              categoriaId: r.categoriaId,
+              metodoId:    r.metodoId,
               descripcion: r.descripcion,
-              categoria:   r.categoria,
               monto:       r.monto,
-              metodo:      r.metodo,
               fecha,
-              notas:       r.notas || "",
+              esCuota:     r.esCuota || false,
+              notas:       r.notas || null,
             }))
           ).then(nuevos => {
             localDispatch({ type: "APLICAR_RECURRENTES", nuevos });
@@ -195,19 +201,30 @@ export function AppProvider({ children }) {
     }).catch(console.error);
   }, [user?.id]);
 
-  // dispatch inteligente: actualiza UI + persiste en Supabase
   const dispatch = async (action) => {
-    // 1. Actualizar UI inmediatamente
     localDispatch(action);
-
-    // 2. Persistir en Supabase en segundo plano (si hay usuario)
     if (!user) return;
     try {
       switch (action.type) {
 
+        // ── Tarjetas ────────────────────────────────────────
+        case "ADD_TARJETA": {
+          const saved = await db.tarjetas.add(user.id, action.payload);
+          localDispatch({ type: "UPDATE_TARJETA", id: action.payload.id || "", payload: saved });
+          break;
+        }
+        case "UPDATE_TARJETA": {
+          const saved = await db.tarjetas.update(action.id, action.payload);
+          localDispatch({ type: "UPDATE_TARJETA", id: action.id, payload: saved });
+          break;
+        }
+        case "DELETE_TARJETA":
+          await db.tarjetas.delete(action.id);
+          break;
+
+        // ── Gastos ──────────────────────────────────────────
         case "ADD_GASTO": {
           const saved = await db.gastos.add(user.id, action.payload);
-          // Reemplazar el item temporal con el que tiene ID real de Supabase
           localDispatch({ type: "UPDATE_GASTO", id: action.payload.id || "", payload: saved });
           break;
         }
@@ -218,24 +235,23 @@ export function AppProvider({ children }) {
           await db.gastos.delete(action.id);
           break;
 
+        // ── Gastos Fijos ────────────────────────────────────
         case "ADD_GASTO_FIJO": {
-          console.log("[FIJO] Intentando guardar:", action.payload);
-          try {
-            const saved = await db.gastosFijos.add(user.id, action.payload);
-            console.log("[FIJO] Guardado OK:", saved);
-            localDispatch({ type: "UPDATE_GASTO_FIJO", tempId: action.payload.id, payload: saved });
-          } catch(e) {
-            console.error("[FIJO] ERROR al guardar:", e);
-          }
+          const saved = await db.gastosFijos.add(user.id, action.payload);
+          localDispatch({ type: "UPDATE_GASTO_FIJO", tempId: action.payload.id, payload: saved });
           break;
         }
         case "DELETE_GASTO_FIJO":
           await db.gastosFijos.delete(action.id);
           break;
 
+        // ── Recurrentes ─────────────────────────────────────
         case "ADD_RECURRENTE": {
           const saved = await db.recurrentes.add(user.id, action.payload);
-          localDispatch({ type: "HYDRATE", payload: { ...state, gastosRecurrentes: [...state.gastosRecurrentes.filter(g => g.id !== action.payload.id), saved] } });
+          localDispatch({ type: "HYDRATE", payload: {
+            ...state,
+            gastosRecurrentes: [...state.gastosRecurrentes.filter(g => g.id !== action.payload.id), saved],
+          }});
           break;
         }
         case "DELETE_RECURRENTE":
@@ -243,107 +259,88 @@ export function AppProvider({ children }) {
           break;
 
         case "APLICAR_RECURRENTES":
-          // Ya manejado en el useEffect de hidratacion (AppContext), no hacer nada aqui
           break;
 
+        // ── Presupuestos ────────────────────────────────────
         case "SET_PRESUPUESTO":
-          await db.presupuestos.set(user.id, action.categoria, action.monto);
+          await db.presupuestos.set(user.id, action.categoriaId, action.monto);
           break;
 
+        // ── Ingresos ────────────────────────────────────────
         case "SAVE_INGRESO": {
           const saved = await db.ingresos.save(user.id, action.payload);
           localDispatch({ type: "SAVE_INGRESO", payload: saved });
           break;
         }
 
+        // ── Deudas ──────────────────────────────────────────
         case "ADD_DEUDA": {
           const saved = await db.deudas.add(user.id, action.payload);
-          localDispatch({ type: "HYDRATE", payload: { ...state, deudas: [...state.deudas.filter(d => d.id !== action.payload.id), saved] } });
+          localDispatch({ type: "HYDRATE", payload: {
+            ...state,
+            deudas: [...state.deudas.filter(d => d.id !== action.payload.id), saved],
+          }});
           break;
         }
         case "DELETE_DEUDA":
           await db.deudas.delete(action.id);
           break;
-
         case "ADD_PAGO_DEUDA": {
-          const deudaId = action.payload?.deudaId || action.deudaId;
-          const deuda = state.deudas.find(d => d.id === deudaId);
-          if (deuda) await db.deudas.update(deudaId, { pagosRealizados: (deuda.pagosRealizados || 0) + 1 });
+          const deuda = state.deudas.find(d => d.id === action.deudaId);
+          if (deuda) await db.deudas.update(action.deudaId, {
+            ...deuda,
+            pagosRealizados: (deuda.pagosRealizados || 0) + 1,
+          });
           break;
         }
 
-        case "UPDATE_TARJETA": {
-          // Sincronizar cuotas: borrar todas las del tab y reinsertar
-          const tarjeta = action.tarjeta;
-          const cuotasActuales = state.tarjetas[tarjeta]?.cuotasActivas || [];
-          // Borrar las que ya no estan
-          const nuevasIds = new Set((action.payload.cuotasActivas || []).map(c => c.id));
-          await Promise.all(cuotasActuales.filter(c => c.id && !nuevasIds.has(c.id)).map(c => db.cuotas.delete(c.id)));
-          // Agregar las nuevas (sin id aun)
-          const sinId = (action.payload.cuotasActivas || []).filter(c => !c.id);
-          await Promise.all(sinId.map(c => db.cuotas.add(user.id, tarjeta, c)));
-          // Actualizar pagadas en las existentes
-          const conId = (action.payload.cuotasActivas || []).filter(c => c.id);
-          await Promise.all(conId.map(c => db.cuotas.update(c.id, c)));
-          // Recargar para tener IDs frescos
-          const tarjetas = await db.cuotas.getAll(user.id);
-          localDispatch({ type: "HYDRATE", payload: { ...state, tarjetas } });
-          break;
-        }
-
+        // ── Cuotas (compra atómica) ─────────────────────────
         case "ADD_CUOTA_COMPRA": {
           const { gasto, tarjetaId, cuota, recurrente } = action.payload;
-          // Solo campos que existen en la tabla gastos
           const gastoSaved = await db.gastos.add(user.id, {
+            tarjetaId:   gasto.tarjetaId || tarjetaId,
+            categoriaId: gasto.categoriaId,
+            metodoId:    "credito",
             descripcion: gasto.descripcion,
-            categoria:   gasto.categoria,
             monto:       gasto.monto,
-            metodo:      gasto.metodo,
             fecha:       gasto.fecha,
-            notas:       gasto.notas || "",
+            esCuota:     true,
+            notas:       gasto.notas || null,
           });
-          // Solo campos que existen en gastos_recurrentes
-          const recurrenteSaved = await db.recurrentes.add(user.id, {
-            descripcion: recurrente.descripcion,
-            categoria:   recurrente.categoria,
-            monto:       recurrente.monto,
-            metodo:      recurrente.metodo,
-            notas:       recurrente.notas || "",
-          });
-          // Cuota en tarjeta — solo campos del schema
-          await db.cuotas.add(user.id, tarjetaId, {
-            desc:           cuota.desc,
-            montoTotal:     cuota.montoTotal,
-            cuota:          cuota.cuota,
-            totalCuotas:    cuota.totalCuotas,
-            pagadas:        cuota.pagadas,
-            conInteres:     cuota.conInteres,
-            mesPrimerPago:  cuota.mesPrimerPago  || null,
-            anioPrimerPago: cuota.anioPrimerPago || null,
-          });
-          // Recargar todo para tener IDs de Supabase
-          const [tarjetas, gastos, gastosRecurrentes] = await Promise.all([
+          if (recurrente) {
+            await db.recurrentes.add(user.id, {
+              tarjetaId:   tarjetaId,
+              categoriaId: recurrente.categoriaId || gasto.categoriaId,
+              metodoId:    "credito",
+              descripcion: recurrente.descripcion,
+              monto:       recurrente.monto,
+              esCuota:     true,
+              notas:       recurrente.notas || null,
+            });
+          }
+          await db.cuotas.add(user.id, tarjetaId, cuota);
+          // Recargar todo para tener IDs frescos
+          const [cuotasNuevas, gastosNuevos, recurrentesNuevos] = await Promise.all([
             db.cuotas.getAll(user.id),
             db.gastos.getAll(user.id),
             db.recurrentes.getAll(user.id),
           ]);
-          localDispatch({ type: "HYDRATE", payload: { ...state, gastos, gastosRecurrentes, tarjetas } });
+          localDispatch({ type: "HYDRATE", payload: {
+            ...state,
+            cuotas:            cuotasNuevas,
+            gastos:            gastosNuevos,
+            gastosRecurrentes: recurrentesNuevos,
+          }});
           break;
         }
 
-        case "SET_CONFIG": {
-          const newCfg = { ...state.config, ...action.payload };
-          await db.config.save(user.id, newCfg);
-          // Update TARJETAS in memory
-          if (newCfg.bcp)  Object.assign(TARJETAS.BCP,  newCfg.bcp);
-          if (newCfg.amex) Object.assign(TARJETAS.AMEX, newCfg.amex);
-          localDispatch({ type: "SET_CONFIG", payload: newCfg });
+        // ── Config ──────────────────────────────────────────
+        case "SET_CONFIG":
+          await db.config.save(user.id, action.payload);
           break;
-        }
       }
     } catch (err) {
       console.error("Error sincronizando con Supabase:", err);
-      // UI ya actualizada — el error es silencioso para no interrumpir al usuario
     }
   };
 
@@ -360,7 +357,7 @@ export function useApp() {
   return ctx;
 }
 
-// ── Selectors ─────────────────────────────────────────
+// ── Selectors ──────────────────────────────────────────────
 
 export function useGastosMes(mesIdx, anio) {
   const { state } = useApp();
@@ -377,33 +374,6 @@ export function useIngresoMes(mesIdx, anio) {
   const m = mesIdx ?? new Date().getMonth();
   const a = anio   ?? new Date().getFullYear();
   return state.historialIngresos.find(h => h.mesIdx === m && h.anio === a) ?? null;
-}
-
-// Ingreso disponible = el del mes anterior (el que ya fue depositado)
-// Ej: en marzo se usa el ingreso de febrero
-// Suma de cuotas activas de tarjeta para el mes actual
-export function useCuotasMes() {
-  const { state } = useApp();
-  const hoy = new Date();
-  const mesActual  = hoy.getMonth() + 1; // 1-indexed
-  const anioActual = hoy.getFullYear();
-  let total = 0;
-  ["bcp", "amex"].forEach(t => {
-    const cuotas = state.tarjetas?.[t]?.cuotasActivas || [];
-    cuotas.forEach(c => {
-      const totalC     = parseInt(c.totalCuotas) || 0;
-      const anioInicio = c.anioPrimerPago || anioActual;
-      const mesInicio  = c.mesPrimerPago  || mesActual;
-      // Cuota numero que corresponde al mes actual
-      const diffMeses   = (anioActual - anioInicio) * 12 + (mesActual - mesInicio);
-      const numeroCuota = diffMeses + 1;
-      // Mostrar si la cuota cae en el mes actual y no está liquidada
-      if (numeroCuota >= 1 && numeroCuota <= totalC) {
-        total += parseFloat(c.cuota) || 0;
-      }
-    });
-  });
-  return total;
 }
 
 export function useIngresoDisponible() {

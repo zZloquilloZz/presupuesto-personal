@@ -5,8 +5,9 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useApp, useGastosMes } from "../context/AppContext";
-import { CATEGORIAS } from "../constants";
+
 import { fmt } from "../utils";
+import { CATEGORIAS_FALLBACK } from "../constants";
 import { Card, SectionTitle, KPICard, PageHeader, ChartTooltip, ProgressBar, Btn } from "../components/UI";
 
 export default function Presupuesto() {
@@ -19,13 +20,14 @@ export default function Presupuesto() {
 
   const savePresupuesto = (id) => {
     const v = parseFloat(tempVal);
-    if (!isNaN(v) && v >= 0) dispatch({ type:"SET_PRESUPUESTO", categoria:id, monto:v });
+    if (!isNaN(v) && v >= 0) dispatch({ type:"SET_PRESUPUESTO", categoriaId:id, monto:v });
     setEditando(null);
   };
 
   // Calcular gastado real por categoria
-  const data = CATEGORIAS.map(c => {
-    const gastado = gastosMes.filter(g=>g.categoria===c.id).reduce((s,g)=>s+g.monto,0);
+  const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
+  const data = categorias.map(c => {
+    const gastado = gastosMes.filter(g=>g.categoriaId===c.id).reduce((s,g)=>s+g.monto,0);
     const ppto    = presupuestos[c.id] || 0;
     const pct     = ppto > 0 ? (gastado / ppto) * 100 : 0;
     const estado  = pct >= 100 ? "excedido" : pct >= 80 ? "alerta" : "ok";

@@ -53,7 +53,7 @@ export function agruparPorCategoria(gastos, categorias) {
     .map(c => ({
       ...c,
       total: gastos
-        .filter(g => g.categoria === c.id)
+        .filter(g => g.categoriaId === c.id)
         .reduce((sum, g) => sum + g.monto, 0),
     }))
     .filter(c => c.total > 0);

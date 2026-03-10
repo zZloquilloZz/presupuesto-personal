@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
-import { CATEGORIAS, TARJETAS, EMAILJS, MESES } from "../constants";
+import { CATEGORIAS_FALLBACK, EMAILJS, MESES } from "../constants";
 import { fmt, diasPara, periodoActual, agruparPorCategoria } from "../utils";
 import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader, Badge, EmptyState } from "../components/UI";
 
@@ -51,8 +51,8 @@ export default function Dashboard() {
   const gastosParaGrafico = gastosMes;
 
   // Metodo de pago: todos los gastos reales del mes
-  const totalCredito  = gastosMes.filter(g => g.metodo === "bcp" || g.metodo === "amex").reduce((s,g) => s + g.monto, 0);
-  const totalDebito   = gastosMes.filter(g => g.metodo === "debito" || g.metodo === "efectivo").reduce((s,g) => s + g.monto, 0);
+  const totalCredito  = gastosMes.filter(g => g.metodoId === "credito").reduce((s,g) => s + g.monto, 0);
+  const totalDebito   = gastosMes.filter(g => g.metodoId !== "credito").reduce((s,g) => s + g.monto, 0);
   // Ingreso disponible = mes anterior (ya depositado)
   const ingresoBase    = ingresoAnterior?.neto ?? 0;
   const hayIngresos    = ingresoBase > 0;
@@ -73,7 +73,8 @@ export default function Dashboard() {
     return d.getMonth() === mesSigIdx && d.getFullYear() === anioSig;
   });
   const gastosVista = [...gastosMes, ...gastosMesSig];
-  const pieData = agruparPorCategoria(gastosVista.length > 0 ? gastosVista : gastosMes, CATEGORIAS);
+  const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
+  const pieData = agruparPorCategoria(gastosVista.length > 0 ? gastosVista : gastosMes, categorias);
   const catTop  = [...pieData].sort((a,b) => b.total - a.total)[0];
 
   // Historial de 7 meses (4 anteriores + actual + 2 siguientes si hay datos)
@@ -217,8 +218,8 @@ export default function Dashboard() {
 
         {/* Ciclos de tarjetas */}
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          {Object.values(TARJETAS).map(t => {
-            const cuotasT = state.tarjetas?.[t.id]?.cuotasActivas || [];
+          {(state.tarjetasCredito||[]).map(t => {
+            const cuotasT = state.cuotas?.[t.id]?.cuotasActivas || [];
             const hoyD  = new Date();
             const diaD  = hoyD.getDate();
             const mesD  = hoyD.getMonth();
@@ -231,7 +232,7 @@ export default function Dashboard() {
 
             // Gastos directos pendientes = fecha de cargo posterior al ultimo pago
             const directosPendientes = state.gastos
-              .filter(g => g.metodo === t.id && !g.esCuota)
+              .filter(g => g.tarjetaId === t.id && !g.esCuota)
               .filter(g => new Date(g.fecha) > ultimoPagoD)
               .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
 
@@ -291,7 +292,7 @@ export default function Dashboard() {
                 {/* Lista de compras pendientes */}
                 {(() => {
                   const directosList = state.gastos
-                    .filter(g => g.metodo === t.id && !g.esCuota)
+                    .filter(g => g.tarjetaId === t.id && !g.esCuota)
                     .filter(g => new Date(g.fecha) > ultimoPagoD)
                     .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                   const cuotasList = cuotasT.filter(c => {

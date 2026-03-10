@@ -1,56 +1,20 @@
 // ── AFP INTEGRA ──────────────────────────────────────
-// Porcentajes vigentes hasta Dic 2026 segun licitacion SBS
 export const AFP = {
-  FONDO:           10.00,  // Aporte obligatorio al fondo
-  INVALIDEZ:        1.37,  // Seguro de invalidez y sobrevivencia
-  COMISION_FLUJO:   0.00,  // Integra no cobra comision en boleta
-  TOTAL:           11.37,  // Total descuento sobre bruto
-  COMISION_SALDO:   1.20,  // % anual sobre fondo acumulado (no aparece en boleta)
+  FONDO:           10.00,
+  INVALIDEZ:        1.37,
+  COMISION_FLUJO:   0.00,
+  TOTAL:           11.37,
+  COMISION_SALDO:   1.20,
 };
 
 // ── SUELDO BASE ──────────────────────────────────────
 export const SUELDO = {
-  HABER_BASICO:  1443.00,  // Editable desde Modulo Ingresos
-  ASIG_FAMILIAR:  113.00,  // Fija por ley, no cambia
-  VALOR_HE25:       8.10,  // Valor por hora extra al 25%
-  VALOR_HE100:     12.968, // Valor por hora extra al 100%
-  DIA_DEPOSITO:      28,   // Dia habitual de deposito
+  HABER_BASICO:  1443.00,
+  ASIG_FAMILIAR:  113.00,
+  VALOR_HE25:       8.10,
+  VALOR_HE100:     12.968,
+  DIA_DEPOSITO:      28,
 };
-
-// ── TARJETAS DE CREDITO ──────────────────────────────
-// Solo datos estaticos (nombre, color, id).
-// Los datos financieros (lineaCredito, cierre, pagoDia, tea, tcea)
-// se guardan en Supabase tabla config y se cargan via AppContext.
-export const TARJETAS = {
-  BCP: {
-    id:     "bcp",
-    nombre: "BCP Visa",
-    color:  "#38BDF8",
-    // Datos financieros se cargan desde Supabase — null hasta que el usuario configure
-    lineaCredito: null, cierre: null, pagoDia: null, tea: null, tcea: null,
-  },
-  AMEX: {
-    id:     "amex",
-    nombre: "Interbank AMEX Gold",
-    color:  "#F59E0B",
-    // Datos financieros se cargan desde Supabase — null hasta que el usuario configure
-    lineaCredito: null, cierre: null, pagoDia: null, tea: null, tcea: null,
-  },
-};
-
-// ── CATEGORIAS DE GASTO ──────────────────────────────
-export const CATEGORIAS = [
-  { id: "alimentacion", label: "Alimentacion",    color: "#F59E0B", emoji: "🍽" },
-  { id: "transporte",   label: "Transporte",      color: "#3B82F6", emoji: "🚌" },
-  { id: "entrete",      label: "Entretenimiento", color: "#8B5CF6", emoji: "🎮" },
-  { id: "salud",        label: "Salud",           color: "#10B981", emoji: "💊" },
-  { id: "educacion",    label: "Educacion",       color: "#06B6D4", emoji: "📚" },
-  { id: "hogar",        label: "Hogar",           color: "#F97316", emoji: "🏠" },
-  { id: "ropa",         label: "Ropa",            color: "#EC4899", emoji: "👕" },
-  { id: "servicios",    label: "Servicios",       color: "#84CC16", emoji: "📱" },
-  { id: "otros",        label: "Otros",           color: "#6B7280", emoji: "📦" },
-];
-
 
 // ── EMAILJS ──────────────────────────────────────────
 export const EMAILJS = {
@@ -62,3 +26,23 @@ export const EMAILJS = {
 
 // ── MESES ────────────────────────────────────────────
 export const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
+
+// ── CATEGORIAS (fallback local si los catálogos aún no cargaron) ──
+// La fuente de verdad es la tabla `categorias` en Supabase.
+export const CATEGORIAS_FALLBACK = [
+  { id: "alimentacion", label: "Alimentación", color: "#F59E0B", emoji: "🍽" },
+  { id: "transporte",   label: "Transporte",   color: "#3B82F6", emoji: "🚌" },
+  { id: "entrete",      label: "Entretenimiento", color: "#8B5CF6", emoji: "🎮" },
+  { id: "salud",        label: "Salud",         color: "#10B981", emoji: "💊" },
+  { id: "educacion",    label: "Educación",     color: "#06B6D4", emoji: "📚" },
+  { id: "hogar",        label: "Hogar",         color: "#F97316", emoji: "🏠" },
+  { id: "ropa",         label: "Ropa",          color: "#EC4899", emoji: "👕" },
+  { id: "otros",        label: "Otros",         color: "#6B7280", emoji: "📦" },
+];
+
+// ── METODOS (fallback local) ──────────────────────────
+export const METODOS_FALLBACK = [
+  { id: "debito",   label: "Débito"   },
+  { id: "efectivo", label: "Efectivo" },
+  { id: "credito",  label: "Crédito"  },
+];

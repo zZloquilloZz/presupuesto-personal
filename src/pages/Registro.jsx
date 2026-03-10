@@ -1,135 +1,132 @@
-// Registro de gastos — formulario para ingresar movimientos del mes.
-// Soporta gastos simples, recurrentes, y compras a cuotas.
-// Las cuotas crean automaticamente la entrada en Tarjetas y gastos mensuales recurrentes.
+// Registro de gastos — formulario adaptado al schema normalizado 3FN
+// categoriaId/metodoId/tarjetaId en lugar de strings libres
 
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
-import { CATEGORIAS, TARJETAS } from "../constants";
+import { CATEGORIAS_FALLBACK, METODOS_FALLBACK } from "../constants";
 import { fmt, uid, fechaLegible } from "../utils";
 import { Card, SectionTitle, KPICard, Btn, Field, EmptyState, Badge, PageHeader, ProgressBar } from "../components/UI";
-
-const METODOS = [
-  { id:"debito",   label:"Debito",         color:"var(--green)"  },
-  { id:"bcp",      label:"BCP Visa",       color:"var(--blue)"   },
-  { id:"amex",     label:"AMEX Interbank", color:"var(--orange)" },
-  { id:"efectivo", label:"Efectivo",       color:"var(--yellow)" },
-];
 
 const HOY = new Date().toISOString().slice(0, 10);
 
 const EMPTY_FORM = {
-  descripcion:"", categoria:"alimentacion", monto:"",
-  metodo:"debito", fecha: HOY, notas:"", recurrente: false,
-  esCuota: false, totalCuotas:"", conInteres: false, cuotaManual:"", pagadasYa: "1",
-  fechaCompra: HOY, // fecha real de la compra para calcular ciclo
+  descripcion: "", categoriaId: "alimentacion", monto: "",
+  metodoId: "debito", tarjetaId: null,
+  fecha: HOY, notas: "", recurrente: false,
+  esCuota: false, totalCuotas: "", conInteres: false, cuotaManual: "", pagadasYa: "1",
+  fechaCompra: HOY,
 };
 
-// ── Pagos Fijos Panel ────────────────────────────────────────────────────────
-function PagosFijosPanel({ state, dispatch, fijoForm, setFijoForm, fijoError, setFijoError }) {
-  const CATEGORIAS_LOCAL = [
-    { id:"alimentacion", label:"Alimentacion", emoji:"🍔", color:"var(--orange)" },
-    { id:"transporte",   label:"Transporte",   emoji:"🚗", color:"var(--blue)"   },
-    { id:"salud",        label:"Salud",        emoji:"💊", color:"var(--red)"    },
-    { id:"entretenimiento", label:"Entret.",   emoji:"🎮", color:"var(--purple)" },
-    { id:"educacion",    label:"Educacion",    emoji:"📚", color:"var(--yellow)" },
-    { id:"hogar",        label:"Hogar",        emoji:"🏠", color:"var(--green)"  },
-    { id:"ropa",         label:"Ropa",         emoji:"👕", color:"var(--pink)"   },
-    { id:"otros",        label:"Otros",        emoji:"📦", color:"var(--text-muted)" },
-  ];
-  const METODOS_LOCAL = [
-    { id:"debito",   label:"Debito",   color:"var(--green)"  },
-    { id:"bcp",      label:"BCP Visa", color:"var(--blue)"   },
-    { id:"amex",     label:"AMEX",     color:"var(--orange)" },
-    { id:"efectivo", label:"Efectivo", color:"var(--yellow)" },
-  ];
-  const getCat = id => CATEGORIAS_LOCAL.find(c => c.id === id) || CATEGORIAS_LOCAL[CATEGORIAS_LOCAL.length-1];
-  const getMet  = id => METODOS_LOCAL.find(m => m.id === id)  || METODOS_LOCAL[0];
-  const sf = (k,v) => setFijoForm(f => ({...f, [k]:v}));
+// Calcula cuota con TEA
+function calcCuota(monto, n, tea) {
+  if (!monto || !n || n <= 0) return 0;
+  const P   = parseFloat(monto);
+  const tem = Math.pow(1 + tea / 100, 1 / 12) - 1;
+  if (tem === 0) return parseFloat((P / n).toFixed(2));
+  return parseFloat((P * (tem * Math.pow(1+tem,n)) / (Math.pow(1+tem,n)-1)).toFixed(2));
+}
+
+function getPrimerPago(fechaCompra, cierreDia) {
+  const [anio, mes, dia] = fechaCompra.split("-").map(Number);
+  let mesPago = dia < cierreDia ? mes + 1 : mes + 2;
+  let anioPago = anio;
+  if (mesPago > 12) { mesPago -= 12; anioPago += 1; }
+  return { anio: anioPago, mes: mesPago };
+}
+
+const MESES_LABEL = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
+
+// ── Pagos Fijos Panel ──────────────────────────────────────────────────────────
+function PagosFijosPanel({ state, dispatch }) {
+  const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
+  const metodos    = state.metodos.length    ? state.metodos    : METODOS_FALLBACK;
+
+  const [form, setForm]   = useState({ descripcion:"", monto:"", dia:"", categoriaId:"otros", metodoId:"debito", tarjetaId:null });
+  const [error, setError] = useState("");
+  const sf = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const getCat = id => categorias.find(c=>c.id===id) || categorias[categorias.length-1];
+  const getMet = id => metodos.find(m=>m.id===id)    || metodos[0];
 
   const handleAdd = () => {
-    if (!fijoForm.descripcion.trim()) return setFijoError("Ingresa una descripcion");
-    if (!fijoForm.monto || isNaN(fijoForm.monto) || parseFloat(fijoForm.monto) <= 0) return setFijoError("Ingresa un monto valido");
-    if (!fijoForm.dia || parseInt(fijoForm.dia) < 1 || parseInt(fijoForm.dia) > 31) return setFijoError("Dia debe ser entre 1 y 31");
-    setFijoError("");
-    dispatch({ type: "ADD_GASTO_FIJO", payload: {
+    if (!form.descripcion.trim()) return setError("Ingresa una descripción");
+    if (!form.monto || parseFloat(form.monto) <= 0) return setError("Ingresa un monto válido");
+    if (!form.dia || parseInt(form.dia)<1 || parseInt(form.dia)>31) return setError("Día debe ser entre 1 y 31");
+    setError("");
+    dispatch({ type:"ADD_GASTO_FIJO", payload:{
       id:          uid(),
-      descripcion: fijoForm.descripcion.trim(),
-      monto:       parseFloat(fijoForm.monto),
-      dia:         parseInt(fijoForm.dia),
-      categoria:   fijoForm.categoria,
-      metodo:      fijoForm.metodo,
+      descripcion: form.descripcion.trim(),
+      monto:       parseFloat(form.monto),
+      dia:         parseInt(form.dia),
+      categoriaId: form.categoriaId,
+      metodoId:    form.metodoId,
+      tarjetaId:   form.metodoId==="credito" ? form.tarjetaId : null,
     }});
-    setFijoForm({ descripcion:"", monto:"", dia:"", categoria:"otros", metodo:"debito" });
+    setForm({ descripcion:"", monto:"", dia:"", categoriaId:"otros", metodoId:"debito", tarjetaId:null });
   };
 
   return (
     <div>
-      {/* Info banner */}
       <div style={{ marginBottom:12, padding:"10px 14px", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)" }}>
         <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600, marginBottom:3 }}>Pagos Fijos Mensuales</div>
         <div style={{ fontSize:9, color:"var(--text-dim)", lineHeight:1.6 }}>
-          Pagos que se repiten todos los meses sin fecha de fin: alquiler, streaming, pension, etc.
-          Se muestran en el Dashboard como compromisos del mes.
+          Pagos que se repiten todos los meses: alquiler, streaming, pensión, etc.
         </div>
       </div>
 
-      {/* Formulario */}
       <div style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:"14px 16px", marginBottom:12 }}>
         <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:10 }}>Nuevo pago fijo</div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 100px 60px", gap:8, marginBottom:8 }}>
           <div>
-            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Descripcion</div>
-            <input placeholder="Ej: Netflix, Alquiler..." value={fijoForm.descripcion}
-              onChange={e=>sf("descripcion",e.target.value)}
-              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Descripción</div>
+            <input placeholder="Ej: Netflix, Alquiler..." value={form.descripcion} onChange={e=>sf("descripcion",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
           </div>
           <div>
             <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Monto S/.</div>
-            <input type="number" min="0" step="0.01" placeholder="0.00" value={fijoForm.monto}
-              onChange={e=>sf("monto",e.target.value)}
-              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+            <input type="number" min="0" step="0.01" placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
           </div>
           <div>
-            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Dia</div>
-            <input type="number" min="1" max="31" placeholder="1" value={fijoForm.dia}
-              onChange={e=>sf("dia",e.target.value)}
-              style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Día</div>
+            <input type="number" min="1" max="31" placeholder="1" value={form.dia} onChange={e=>sf("dia",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11, boxSizing:"border-box" }}/>
           </div>
         </div>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
           <div>
-            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Categoria</div>
-            <select value={fijoForm.categoria} onChange={e=>sf("categoria",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
-              {CATEGORIAS_LOCAL.map(cat => <option key={cat.id} value={cat.id}>{cat.emoji} {cat.label}</option>)}
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Categoría</div>
+            <select value={form.categoriaId} onChange={e=>sf("categoriaId",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+              {categorias.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
             </select>
           </div>
           <div>
-            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Metodo de pago</div>
-            <select value={fijoForm.metodo} onChange={e=>sf("metodo",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
-              {METODOS_LOCAL.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Método</div>
+            <select value={form.metodoId} onChange={e=>{ sf("metodoId",e.target.value); if(e.target.value!=="credito") sf("tarjetaId",null); }} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+              {metodos.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </div>
         </div>
-        {fijoError && <div style={{ fontSize:9, color:"var(--red)", marginBottom:8 }}>{fijoError}</div>}
-        <button onClick={handleAdd} style={{
-          background:"linear-gradient(135deg,#22C55E,#4ADE80)", border:"none",
-          borderRadius:"var(--radius-sm)", color:"#0A0C10",
-          fontFamily:"var(--font-sans)", fontSize:10, fontWeight:800,
-          padding:"9px 20px", cursor:"pointer", letterSpacing:"0.06em", textTransform:"uppercase",
-        }}>+ Agregar Pago Fijo</button>
+        {form.metodoId==="credito" && state.tarjetasCredito.length>0 && (
+          <div style={{ marginBottom:8 }}>
+            <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>Tarjeta</div>
+            <select value={form.tarjetaId||""} onChange={e=>sf("tarjetaId",e.target.value||null)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+              <option value="">Selecciona tarjeta</option>
+              {state.tarjetasCredito.map(t=><option key={t.id} value={t.id}>{t.nombre}</option>)}
+            </select>
+          </div>
+        )}
+        {error && <div style={{ fontSize:9, color:"var(--red)", marginBottom:8 }}>{error}</div>}
+        <button onClick={handleAdd} style={{ background:"linear-gradient(135deg,#22C55E,#4ADE80)", border:"none", borderRadius:"var(--radius-sm)", color:"#0A0C10", fontFamily:"var(--font-sans)", fontSize:10, fontWeight:800, padding:"9px 20px", cursor:"pointer", letterSpacing:"0.06em", textTransform:"uppercase" }}>+ Agregar Pago Fijo</button>
       </div>
 
-      {/* Lista */}
       {state.gastosFijos.length === 0 ? (
         <div style={{ padding:"32px 20px", textAlign:"center", background:"var(--bg-card)", border:"1px dashed var(--border)", borderRadius:"var(--radius-lg)", color:"var(--text-ghost)" }}>
           <div style={{ fontSize:20, marginBottom:8, opacity:.3 }}>📋</div>
-          <div style={{ fontFamily:"var(--font-sans)", fontSize:12 }}>Sin pagos fijos aun</div>
+          <div style={{ fontFamily:"var(--font-sans)", fontSize:12 }}>Sin pagos fijos aún</div>
         </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {state.gastosFijos.map((f, i) => {
-            const cat = getCat(f.categoria);
-            const met = getMet(f.metodo);
+          {state.gastosFijos.map((f,i) => {
+            const cat = categorias.find(c=>c.id===f.categoriaId) || categorias[categorias.length-1];
+            const met = metodos.find(m=>m.id===f.metodoId) || metodos[0];
             return (
               <div key={f.id||i} className="fade-up" style={{ background:"var(--bg-card)", border:"1px solid var(--border)", borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
                 <div style={{ width:34, height:34, borderRadius:"var(--radius-sm)", background:cat.color+"18", border:`1px solid ${cat.color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{cat.emoji}</div>
@@ -137,14 +134,12 @@ function PagosFijosPanel({ state, dispatch, fijoForm, setFijoForm, fijoError, se
                   <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:"var(--text-primary)", marginBottom:3 }}>{f.descripcion}</div>
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                     <Badge color={cat.color}>{cat.label}</Badge>
-                    <Badge color={met.color}>{met.label}</Badge>
-                    <Badge color="var(--text-ghost)">Dia {f.dia}</Badge>
+                    <Badge color="var(--text-ghost)">{met.label}</Badge>
+                    <Badge color="var(--text-ghost)">Día {f.dia}</Badge>
                   </div>
                 </div>
                 <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color:"var(--text-primary)", fontWeight:500 }}>S/. {fmt(f.monto)}</div>
-                <button onClick={() => dispatch({ type:"DELETE_GASTO_FIJO", id:f.id })}
-                  style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px", transition:"color .15s" }}
-                  onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
+                <button onClick={()=>dispatch({type:"DELETE_GASTO_FIJO",id:f.id})} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px" }} onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
               </div>
             );
           })}
@@ -158,80 +153,59 @@ function PagosFijosPanel({ state, dispatch, fijoForm, setFijoForm, fijoError, se
   );
 }
 
-// Calcula cuota con TEA: C = P*(TEM*(1+TEM)^n)/((1+TEM)^n-1)
-function calcCuota(monto, n, tea) {
-  if (!monto || !n || n <= 0) return 0;
-  const P   = parseFloat(monto);
-  const tem = Math.pow(1 + tea / 100, 1 / 12) - 1;
-  if (tem === 0) return parseFloat((P / n).toFixed(2));
-  return parseFloat((P * (tem * Math.pow(1+tem,n)) / (Math.pow(1+tem,n)-1)).toFixed(2));
-}
-
-
-// Calcula en qué mes/año empieza el primer pago según el ciclo de la tarjeta
-function getPrimerPago(fechaCompra, cierreDia) {
-  const [anio, mes, dia] = fechaCompra.split("-").map(Number);
-  // Compra ANTES del cierre → entra en este ciclo → pago mes+1
-  // Compra EN el cierre o DESPUÉS → va al siguiente ciclo → pago mes+2
-  let mesPago = dia < cierreDia ? mes + 1 : mes + 2;
-  let anioPago = anio;
-  if (mesPago > 12) { mesPago -= 12; anioPago += 1; }
-  return { anio: anioPago, mes: mesPago }; // mes 1-indexed
-}
-
+// ── Main ───────────────────────────────────────────────────────────────────────
 export default function Registro() {
   const { state, dispatch } = useApp();
+
+  const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
+  const metodos    = state.metodos.length    ? state.metodos    : METODOS_FALLBACK;
 
   const [form, setForm]         = useState(EMPTY_FORM);
   const [errors, setErrors]     = useState({});
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId]     = useState(null);
-
-  const [filtroMes, setFiltroMes] = useState(new Date().toISOString().slice(0, 7));
+  const [filtroMes, setFiltroMes] = useState(new Date().toISOString().slice(0,7));
   const [filtroCat, setFiltroCat] = useState("todas");
   const [filtroMet, setFiltroMet] = useState("todos");
   const [tabVista, setTabVista]   = useState("gastos");
-  const [fijoForm, setFijoForm]   = useState({ descripcion:"", monto:"", dia:"", categoria:"otros", metodo:"debito" });
-  const [fijoError, setFijoError] = useState("");
 
-  const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: null })); };
+  const sf = (k, v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
 
+  // Tarjeta activa seleccionada
+  const tarjetaActiva = form.tarjetaId
+    ? state.tarjetasCredito.find(t=>t.id===form.tarjetaId) || null
+    : null;
 
+  const usandoTarjeta = form.metodoId === "credito" && tarjetaActiva;
 
-  // Tarjeta activa si el metodo es bcp o amex
-  const tarjetaActiva = form.metodo === "bcp" ? TARJETAS.BCP : form.metodo === "amex" ? TARJETAS.AMEX : null;
-
-  // Primer pago según ciclo de facturación
-  const primerPago = (form.esCuota && tarjetaActiva && form.fechaCompra)
+  const primerPago = (form.esCuota && tarjetaActiva?.cierre && form.fechaCompra)
     ? getPrimerPago(form.fechaCompra, tarjetaActiva.cierre)
     : null;
-  const MESES_LABEL = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
 
-  // Preview cuota
   const cuotaPreview = (() => {
-    if (!form.esCuota || !form.monto || !form.totalCuotas) return null;
+    if (!form.esCuota || !form.monto || !form.totalCuotas || !tarjetaActiva) return null;
     const monto = parseFloat(form.monto);
     const n     = parseInt(form.totalCuotas);
-    if (!monto || !n || !tarjetaActiva) return null;
-    const sinInt = parseFloat((monto / n).toFixed(2));
+    if (!monto || !n) return null;
+    const sinInt = parseFloat((monto/n).toFixed(2));
     if (form.conInteres) {
-      const conInt     = calcCuota(monto, n, tarjetaActiva.tea);
-      const totalPagar = parseFloat((conInt * n).toFixed(2));
-      return { cuota: conInt, sinInt, totalPagar, interesTotal: parseFloat((totalPagar - monto).toFixed(2)) };
+      const conInt     = calcCuota(monto, n, tarjetaActiva.tea || 0);
+      const totalPagar = parseFloat((conInt*n).toFixed(2));
+      return { cuota:conInt, sinInt, totalPagar, interesTotal:parseFloat((totalPagar-monto).toFixed(2)) };
     }
     const cuotaFinal = form.cuotaManual ? parseFloat(form.cuotaManual) : sinInt;
-    return { cuota: cuotaFinal, sinInt, totalPagar: parseFloat((cuotaFinal * n).toFixed(2)), interesTotal: 0 };
+    return { cuota:cuotaFinal, sinInt, totalPagar:parseFloat((cuotaFinal*n).toFixed(2)), interesTotal:0 };
   })();
 
   const validate = () => {
     const e = {};
     if (!form.descripcion.trim()) e.descripcion = "Requerido";
-    if (!form.monto || parseFloat(form.monto) <= 0) e.monto = "Ingresa un monto valido";
-    if (!form.esCuota && !form.fecha) e.fecha = "Requerido";
-    if (!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") && !form.fechaCompra) e.fecha = "Ingresa la fecha de compra";
+    if (!form.monto || parseFloat(form.monto)<=0) e.monto = "Ingresa un monto válido";
+    if (!form.esCuota && form.metodoId!=="credito" && !form.fecha) e.fecha = "Requerido";
+    if (!form.esCuota && usandoTarjeta && !form.fechaCompra) e.fecha = "Ingresa la fecha de compra";
     if (form.esCuota) {
-      if (!form.totalCuotas || parseInt(form.totalCuotas) < 2) e.totalCuotas = "Minimo 2 cuotas";
-      if (!tarjetaActiva) e.metodo = "Selecciona BCP o AMEX para cuotas";
+      if (!form.totalCuotas||parseInt(form.totalCuotas)<2) e.totalCuotas = "Mínimo 2 cuotas";
+      if (!tarjetaActiva) e.tarjetaId = "Selecciona una tarjeta";
       if (!form.fechaCompra) e.fechaCompra = "Requerido";
     }
     return e;
@@ -242,88 +216,88 @@ export default function Registro() {
     if (Object.keys(e).length) { setErrors(e); return; }
 
     if (editId) {
-      dispatch({ type:"UPDATE_GASTO", id: editId, payload: {
+      dispatch({ type:"UPDATE_GASTO", id:editId, payload:{
+        tarjetaId:   form.tarjetaId || null,
+        categoriaId: form.categoriaId,
+        metodoId:    form.metodoId,
         descripcion: form.descripcion,
-        categoria:   form.categoria,
         monto:       parseFloat(form.monto),
-        metodo:      form.metodo,
         fecha:       form.fecha,
-        notas:       form.notas || "",
-      } });
+        notas:       form.notas || null,
+      }});
       setEditId(null);
-    } else if (form.esCuota && cuotaPreview) {
-      // ── Compra a cuotas — dispatch atomico ───────────────
+
+    } else if (form.esCuota && cuotaPreview && tarjetaActiva) {
       const n          = parseInt(form.totalCuotas);
       const montoTotal = parseFloat(form.monto);
       const cuotaMes   = cuotaPreview.cuota;
-      const tarjetaId  = form.metodo; // "bcp" o "amex"
-      const cuotaId    = Date.now().toString(36);
-
-      // Calcular mes de inicio del primer pago según ciclo
-      const ppago = getPrimerPago(form.fechaCompra, tarjetaActiva.cierre);
-      // La fecha del primer gasto es el día de pago de ese mes
+      const ppago      = getPrimerPago(form.fechaCompra, tarjetaActiva.cierre);
       const fechaPrimerPago = `${ppago.anio}-${String(ppago.mes).padStart(2,"0")}-${String(tarjetaActiva.pagoDia).padStart(2,"0")}`;
 
-      dispatch({ type: "ADD_CUOTA_COMPRA", payload: {
-        tarjetaId,
-        gasto: {
-          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()} (1/${n})`,
-          categoria:   form.categoria,
+      dispatch({ type:"ADD_CUOTA_COMPRA", payload:{
+        tarjetaId: tarjetaActiva.id,
+        gasto:{
+          tarjetaId:   tarjetaActiva.id,
+          categoriaId: form.categoriaId,
+          metodoId:    "credito",
+          descripcion: `${form.descripcion} — cuota (1/${n})`,
           monto:       cuotaMes,
-          metodo:      form.metodo,
           fecha:       fechaPrimerPago,
+          esCuota:     true,
           notas:       `Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}`,
         },
-        cuota: {
-          id:           cuotaId,
-          desc:         form.descripcion,
+        cuota:{
+          id:            Date.now().toString(36),
+          desc:          form.descripcion,
           montoTotal,
-          cuota:        cuotaMes,
-          totalCuotas:  n,
-          pagadas:      parseInt(form.pagadasYa) || 1,
-          conInteres:   form.conInteres,
-          fechaCompra:  form.fechaCompra,
+          cuota:         cuotaMes,
+          totalCuotas:   n,
+          pagadas:       parseInt(form.pagadasYa)||1,
+          conInteres:    form.conInteres,
           mesPrimerPago: ppago.mes,
-          anioPrimerPago: ppago.anio,
+          anioPrimerPago:ppago.anio,
         },
-        recurrente: {
-          descripcion: `${form.descripcion} — cuota ${tarjetaId.toUpperCase()}`,
-          categoria:   form.categoria,
+        recurrente:{
+          tarjetaId:   tarjetaActiva.id,
+          categoriaId: form.categoriaId,
+          metodoId:    "credito",
+          descripcion: `${form.descripcion} — cuota`,
           monto:       cuotaMes,
-          metodo:      form.metodo,
-          notas:       `Cuota automatica. ${n} cuotas totales. Inicio: ${ppago.mes}/${ppago.anio}`,
           esCuota:     true,
+          notas:       `Cuota automática. ${n} cuotas. Inicio: ${ppago.mes}/${ppago.anio}`,
         },
       }});
 
     } else {
-      // ── Gasto simple ─────────────────────────────────────
-      dispatch({ type:"ADD_GASTO", payload: {
+      dispatch({ type:"ADD_GASTO", payload:{
         id:          uid(),
+        tarjetaId:   form.tarjetaId || null,
+        categoriaId: form.categoriaId,
+        metodoId:    form.metodoId,
         descripcion: form.descripcion,
-        categoria:   form.categoria,
         monto:       parseFloat(form.monto),
-        metodo:      form.metodo,
         fecha:       form.fecha,
-        notas:       form.notas || "",
-      } });
+        esCuota:     false,
+        notas:       form.notas || null,
+      }});
       if (form.recurrente) {
-        dispatch({ type:"ADD_RECURRENTE", payload: {
+        dispatch({ type:"ADD_RECURRENTE", payload:{
+          tarjetaId:   form.tarjetaId || null,
+          categoriaId: form.categoriaId,
+          metodoId:    form.metodoId,
           descripcion: form.descripcion,
-          categoria:   form.categoria,
           monto:       parseFloat(form.monto),
-          metodo:      form.metodo,
-          notas:       form.notas,
+          esCuota:     false,
+          notas:       form.notas || null,
         }});
       }
     }
-
     setForm(EMPTY_FORM);
     setShowForm(false);
   };
 
   const startEdit = (g) => {
-    setForm({ descripcion:g.descripcion, categoria:g.categoria, monto:String(g.monto), metodo:g.metodo, fecha:g.fecha, notas:g.notas||"", recurrente:false, esCuota:false, totalCuotas:"", conInteres:false, cuotaManual:"" });
+    setForm({ descripcion:g.descripcion, categoriaId:g.categoriaId, monto:String(g.monto), metodoId:g.metodoId, tarjetaId:g.tarjetaId||null, fecha:g.fecha, notas:g.notas||"", recurrente:false, esCuota:false, totalCuotas:"", conInteres:false, cuotaManual:"", fechaCompra:HOY, pagadasYa:"1" });
     setEditId(g.id);
     setShowForm(true);
     setErrors({});
@@ -331,94 +305,69 @@ export default function Registro() {
 
   const cancelForm = () => { setForm(EMPTY_FORM); setShowForm(false); setEditId(null); setErrors({}); };
 
-  const mesesDisp   = [...new Set(state.gastos.map(g => g.fecha?.slice(0,7)))].filter(Boolean).sort().reverse();
-  const gastosFilt  = state.gastos
-    .filter(g => !filtroMes || g.fecha?.slice(0,7) === filtroMes)
-    .filter(g => filtroCat === "todas" || g.categoria === filtroCat)
-    .filter(g => filtroMet === "todos" || g.metodo === filtroMet);
+  const mesesDisp  = [...new Set(state.gastos.map(g=>g.fecha?.slice(0,7)))].filter(Boolean).sort().reverse();
+  const gastosFilt = state.gastos
+    .filter(g=>!filtroMes||g.fecha?.slice(0,7)===filtroMes)
+    .filter(g=>filtroCat==="todas"||g.categoriaId===filtroCat)
+    .filter(g=>filtroMet==="todos"||g.metodoId===filtroMet);
+  const totalFilt   = gastosFilt.reduce((s,g)=>s+g.monto,0);
+  const totalMesAct = state.gastos.filter(g=>g.fecha?.slice(0,7)===new Date().toISOString().slice(0,7)).reduce((s,g)=>s+g.monto,0);
 
-  const totalFilt   = gastosFilt.reduce((s,g) => s + g.monto, 0);
-  const totalMesAct = state.gastos
-    .filter(g => g.fecha?.slice(0,7) === new Date().toISOString().slice(0,7))
-    .reduce((s,g) => s + g.monto, 0);
-
-  const porCat = CATEGORIAS.map(c => ({
-    ...c, total: gastosFilt.filter(g => g.categoria === c.id).reduce((s,g) => s + g.monto, 0),
-  })).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
-
-  const getCat = (id) => CATEGORIAS.find(c => c.id === id) || CATEGORIAS[CATEGORIAS.length-1];
-  const getMet = (id) => METODOS.find(m => m.id === id) || METODOS[0];
+  const porCat = categorias.map(c=>({
+    ...c, total: gastosFilt.filter(g=>g.categoriaId===c.id).reduce((s,g)=>s+g.monto,0),
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
 
   return (
     <div>
       <PageHeader title="Registro de Gastos" accentColor="var(--green)">
-        <Btn variant="primary" onClick={() => { if (showForm) cancelForm(); else setShowForm(true); }}>
-          {showForm ? "Cancelar" : "+ Nuevo gasto"}
+        <Btn variant="primary" onClick={()=>{ if(showForm) cancelForm(); else setShowForm(true); }}>
+          {showForm?"Cancelar":"+ Nuevo gasto"}
         </Btn>
       </PageHeader>
 
       <div className="page-container">
-        {/* KPIs */}
         <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
-          <KPICard label="Gasto mes actual"    value={`S/. ${fmt(totalMesAct)}`} valueColor="var(--blue)" delay={0}/>
+          <KPICard label="Gasto mes actual"    value={`S/. ${fmt(totalMesAct)}`}   valueColor="var(--blue)"       delay={0}/>
           <KPICard label="Movimientos del mes" value={`${state.gastos.filter(g=>g.fecha?.slice(0,7)===new Date().toISOString().slice(0,7)).length}`} sub="gastos" delay={0.06}/>
-          <KPICard label="Recurrentes activos" value={`${state.gastosRecurrentes.length}`} sub="se auto-registran" valueColor="var(--yellow)" delay={0.12}/>
-          <KPICard label="Total historico"     value={`S/. ${fmt(state.gastos.reduce((s,g)=>s+g.monto,0))}`} valueColor="var(--text-muted)" delay={0.18}/>
+          <KPICard label="Recurrentes activos" value={`${state.gastosRecurrentes.length}`} sub="auto-registran" valueColor="var(--yellow)" delay={0.12}/>
+          <KPICard label="Total histórico"     value={`S/. ${fmt(state.gastos.reduce((s,g)=>s+g.monto,0))}`} valueColor="var(--text-muted)" delay={0.18}/>
         </div>
 
         {/* Tabs */}
         <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3, width:"fit-content" }}>
-          {[{k:"gastos",l:"Gastos del mes"},{k:"recurrentes",l:`Recurrentes (${state.gastosRecurrentes.length})`},{k:"fijos",l:`Pagos Fijos (${state.gastosFijos.length})`}].map(t => (
-            <button key={t.k} onClick={() => setTabVista(t.k)} style={{
-              background: tabVista===t.k ? "var(--bg-hover)" : "transparent",
-              border: tabVista===t.k ? "1px solid var(--green)" : "1px solid transparent",
-              borderRadius:"var(--radius-sm)", color: tabVista===t.k ? "var(--green)" : "var(--text-muted)",
-              fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700,
-              padding:"6px 14px", cursor:"pointer", transition:"all .15s",
-              letterSpacing:"0.06em", textTransform:"uppercase",
-            }}>{t.l}</button>
+          {[{k:"gastos",l:"Gastos del mes"},{k:"recurrentes",l:`Recurrentes (${state.gastosRecurrentes.length})`},{k:"fijos",l:`Pagos Fijos (${state.gastosFijos.length})`}].map(t=>(
+            <button key={t.k} onClick={()=>setTabVista(t.k)} style={{ background:tabVista===t.k?"var(--bg-hover)":"transparent", border:tabVista===t.k?"1px solid var(--green)":"1px solid transparent", borderRadius:"var(--radius-sm)", color:tabVista===t.k?"var(--green)":"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, padding:"6px 14px", cursor:"pointer", transition:"all .15s", letterSpacing:"0.06em", textTransform:"uppercase" }}>{t.l}</button>
           ))}
         </div>
 
-        <div style={{ display:"grid", gridTemplateColumns: showForm ? "1fr 360px" : "1fr 280px", gap:18 }}>
-          {/* Contenido principal */}
+        <div style={{ display:"grid", gridTemplateColumns:showForm?"1fr 360px":"1fr 280px", gap:18 }}>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-
-            {tabVista === "fijos" ? (
-              <PagosFijosPanel state={state} dispatch={dispatch} fijoForm={fijoForm} setFijoForm={setFijoForm} fijoError={fijoError} setFijoError={setFijoError}/>
-            ) : tabVista === "recurrentes" ? (
+            {tabVista==="fijos" ? (
+              <PagosFijosPanel state={state} dispatch={dispatch}/>
+            ) : tabVista==="recurrentes" ? (
               <div>
                 <div style={{ marginBottom:12, padding:"10px 14px", background:"var(--yellow-bg)", border:"1px solid var(--yellow-border)", borderRadius:"var(--radius-md)" }}>
-                  <div style={{ fontSize:10, color:"var(--yellow)", fontFamily:"var(--font-sans)", fontWeight:600, marginBottom:3 }}>¿Como funciona?</div>
-                  <div style={{ fontSize:9, color:"var(--text-dim)", lineHeight:1.6 }}>
-                    Los gastos recurrentes y las cuotas de tarjeta se registran aqui automaticamente cada mes.
-                  </div>
+                  <div style={{ fontSize:10, color:"var(--yellow)", fontFamily:"var(--font-sans)", fontWeight:600, marginBottom:3 }}>¿Cómo funciona?</div>
+                  <div style={{ fontSize:9, color:"var(--text-dim)", lineHeight:1.6 }}>Los gastos recurrentes y las cuotas de tarjeta se registran automáticamente cada mes.</div>
                 </div>
-                {state.gastosRecurrentes.length === 0 ? (
+                {state.gastosRecurrentes.length===0 ? (
                   <EmptyState title="Sin gastos recurrentes" subtitle={"Marca 'Repetir cada mes' al registrar un gasto\no registra una compra a cuotas"}/>
                 ) : (
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {state.gastosRecurrentes.map((r,i) => {
-                      const cat = getCat(r.categoria);
-                      const met = getMet(r.metodo);
+                    {state.gastosRecurrentes.map((r,i)=>{
+                      const cat = categorias.find(c=>c.id===r.categoriaId)||categorias[categorias.length-1];
                       return (
-                        <div key={r.id} className="fade-up" style={{ background:"var(--bg-card)", border:`1px solid ${(r.esCuota || r.metodo === "bcp" || r.metodo === "amex") ? "var(--blue-border)" : "var(--yellow-border)"}`, borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
+                        <div key={r.id} className="fade-up" style={{ background:"var(--bg-card)", border:`1px solid ${r.esCuota?"var(--blue-border)":"var(--yellow-border)"}`, borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.04}s` }}>
                           <div style={{ width:34, height:34, borderRadius:"var(--radius-sm)", background:cat.color+"18", border:`1px solid ${cat.color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{cat.emoji}</div>
                           <div style={{ flex:1 }}>
                             <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:"var(--text-primary)", marginBottom:3 }}>{r.descripcion}</div>
                             <div style={{ display:"flex", gap:6 }}>
                               <Badge color={cat.color}>{cat.label}</Badge>
-                              <Badge color={met.color}>{met.label}</Badge>
-                              {(r.esCuota || (r.metodo === "bcp") || (r.metodo === "amex"))
-                                ? <Badge color="var(--blue)">Cuota tarjeta</Badge>
-                                : <Badge color="var(--yellow)">Mensual</Badge>
-                              }
+                              {r.esCuota?<Badge color="var(--blue)">Cuota tarjeta</Badge>:<Badge color="var(--yellow)">Mensual</Badge>}
                             </div>
                           </div>
-                          <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color: (r.esCuota || r.metodo === "bcp" || r.metodo === "amex") ? "var(--blue)" : "var(--yellow)", fontWeight:500 }}>S/. {fmt(r.monto)}</div>
-                          <button onClick={() => dispatch({ type:"DELETE_RECURRENTE", id:r.id })}
-                            style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px", transition:"color .15s" }}
-                            onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
+                          <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color:r.esCuota?"var(--blue)":"var(--yellow)", fontWeight:500 }}>S/. {fmt(r.monto)}</div>
+                          <button onClick={()=>dispatch({type:"DELETE_RECURRENTE",id:r.id})} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px" }} onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
                         </div>
                       );
                     })}
@@ -430,37 +379,30 @@ export default function Registro() {
                 {/* Filtros */}
                 <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
                   <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
-                    {[new Date().toISOString().slice(0,7), ...mesesDisp.filter(m=>m!==new Date().toISOString().slice(0,7))].slice(0,6).map(m => (
-                      <button key={m} onClick={()=>setFiltroMes(m)} style={{
-                        background: filtroMes===m?"var(--bg-hover)":"var(--bg-input)",
-                        border:`1px solid ${filtroMes===m?"var(--blue)":"var(--border)"}`,
-                        borderRadius:"var(--radius-sm)", color: filtroMes===m?"var(--blue)":"var(--text-muted)",
-                        fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700,
-                        padding:"5px 10px", cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.06em",
-                      }}>{m}</button>
+                    {[new Date().toISOString().slice(0,7),...mesesDisp.filter(m=>m!==new Date().toISOString().slice(0,7))].slice(0,6).map(m=>(
+                      <button key={m} onClick={()=>setFiltroMes(m)} style={{ background:filtroMes===m?"var(--bg-hover)":"var(--bg-input)", border:`1px solid ${filtroMes===m?"var(--blue)":"var(--border)"}`, borderRadius:"var(--radius-sm)", color:filtroMes===m?"var(--blue)":"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, padding:"5px 10px", cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.06em" }}>{m}</button>
                     ))}
                   </div>
                   <div style={{ width:1, height:20, background:"var(--border)" }}/>
                   <select value={filtroCat} onChange={e=>setFiltroCat(e.target.value)} style={{ padding:"5px 10px", fontSize:10, width:"auto" }}>
-                    <option value="todas">Todas las categorias</option>
-                    {CATEGORIAS.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
+                    <option value="todas">Todas las categorías</option>
+                    {categorias.map(c=><option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
                   </select>
                   <select value={filtroMet} onChange={e=>setFiltroMet(e.target.value)} style={{ padding:"5px 10px", fontSize:10, width:"auto" }}>
-                    <option value="todos">Todos los metodos</option>
-                    {METODOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                    <option value="todos">Todos los métodos</option>
+                    {metodos.map(m=><option key={m.id} value={m.id}>{m.label}</option>)}
                   </select>
-                  {(filtroCat!=="todas"||filtroMet!=="todos") && (
+                  {(filtroCat!=="todas"||filtroMet!=="todos")&&(
                     <button onClick={()=>{setFiltroCat("todas");setFiltroMet("todos");}} style={{ background:"none", border:"none", color:"var(--text-dim)", fontSize:9, cursor:"pointer", fontFamily:"var(--font-sans)", textDecoration:"underline" }}>Limpiar</button>
                   )}
                 </div>
 
-                {gastosFilt.length === 0 ? (
+                {gastosFilt.length===0 ? (
                   <EmptyState title="Sin gastos registrados" subtitle={"Haz clic en '+ Nuevo gasto' para empezar\no cambia los filtros"}/>
                 ) : (
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                    {[...gastosFilt].reverse().map((g,i) => {
-                      const cat = getCat(g.categoria);
-                      const met = getMet(g.metodo);
+                    {[...gastosFilt].reverse().map((g,i)=>{
+                      const cat = categorias.find(c=>c.id===g.categoriaId)||categorias[categorias.length-1];
                       return (
                         <div key={g.id||i} className="fade-up" style={{ background:"var(--bg-card)", border:`1px solid ${g.esCuota?"var(--blue-border)":"var(--border)"}`, borderRadius:"var(--radius-lg)", padding:"13px 16px", display:"flex", alignItems:"center", gap:12, animationDelay:`${i*0.03}s` }}>
                           <div style={{ width:34, height:34, borderRadius:"var(--radius-sm)", background:cat.color+"18", border:`1px solid ${cat.color}33`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{cat.emoji}</div>
@@ -468,15 +410,14 @@ export default function Registro() {
                             <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:"var(--text-primary)", marginBottom:3 }}>{g.descripcion}</div>
                             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                               <Badge color={cat.color}>{cat.label}</Badge>
-                              <Badge color={met.color}>{met.label}</Badge>
-                              {g.esCuota     && <Badge color="var(--blue)">Cuota tarjeta</Badge>}
-                              {g.recurrenteOrigen && <Badge color="var(--yellow)">Recurrente</Badge>}
+                              {g.metodoLabel&&<Badge color="var(--text-ghost)">{g.metodoLabel}</Badge>}
+                              {g.esCuota&&<Badge color="var(--blue)">Cuota tarjeta</Badge>}
                               <span style={{ fontSize:9, color:"var(--text-ghost)" }}>{fechaLegible(g.fecha)}</span>
                             </div>
                           </div>
                           <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color:"var(--text-primary)", fontWeight:500, flexShrink:0 }}>S/. {fmt(g.monto)}</div>
-                          <button onClick={()=>startEdit(g)} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:12, padding:"4px 6px", transition:"color .15s" }} onMouseOver={e=>e.target.style.color="var(--blue)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✏</button>
-                          <button onClick={()=>dispatch({type:"DELETE_GASTO",id:g.id})} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px", transition:"color .15s" }} onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
+                          <button onClick={()=>startEdit(g)} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:12, padding:"4px 6px" }} onMouseOver={e=>e.target.style.color="var(--blue)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✏</button>
+                          <button onClick={()=>dispatch({type:"DELETE_GASTO",id:g.id})} style={{ background:"none", border:"none", color:"var(--text-ghost)", cursor:"pointer", fontSize:13, padding:"4px 6px" }} onMouseOver={e=>e.target.style.color="var(--red)"} onMouseOut={e=>e.target.style.color="var(--text-ghost)"}>✕</button>
                         </div>
                       );
                     })}
@@ -492,42 +433,34 @@ export default function Registro() {
 
           {/* Columna derecha */}
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            {/* Formulario */}
             {showForm && (
-              <Card className="fade-up" style={{ borderColor: editId?"var(--blue-border)":"var(--green-border)" }}>
+              <Card className="fade-up" style={{ borderColor:editId?"var(--blue-border)":"var(--green-border)" }}>
                 <SectionTitle color={editId?"var(--blue)":"var(--green)"}>{editId?"Editar gasto":"Nuevo gasto"}</SectionTitle>
                 <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
 
-                  <Field label="Descripcion" error={errors.descripcion}>
+                  <Field label="Descripción" error={errors.descripcion}>
                     <input placeholder="Ej: Almuerzo, Samsung S25..." value={form.descripcion} onChange={e=>sf("descripcion",e.target.value)} style={errors.descripcion?{borderColor:"var(--red)"}:{}}/>
                   </Field>
 
-                  <Field label="Categoria">
+                  <Field label="Categoría">
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:5 }}>
-                      {CATEGORIAS.map(c => (
-                        <button key={c.id} onClick={()=>sf("categoria",c.id)} style={{
-                          background: form.categoria===c.id?c.color+"22":"var(--bg-input)",
-                          border:`1px solid ${form.categoria===c.id?c.color+"66":"var(--border)"}`,
-                          borderRadius:"var(--radius-sm)", color: form.categoria===c.id?c.color:"var(--text-muted)",
-                          fontFamily:"var(--font-mono)", fontSize:9, padding:"7px 5px", cursor:"pointer", transition:"all .15s", textAlign:"center",
-                        }}>{c.emoji} {c.label}</button>
+                      {categorias.map(c=>(
+                        <button key={c.id} onClick={()=>sf("categoriaId",c.id)} style={{ background:form.categoriaId===c.id?c.color+"22":"var(--bg-input)", border:`1px solid ${form.categoriaId===c.id?c.color+"66":"var(--border)"}`, borderRadius:"var(--radius-sm)", color:form.categoriaId===c.id?c.color:"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:9, padding:"7px 5px", cursor:"pointer", transition:"all .15s", textAlign:"center" }}>{c.emoji} {c.label}</button>
                       ))}
                     </div>
                   </Field>
 
-                  <div style={{ display:"grid", gridTemplateColumns: form.esCuota ? "1fr" : "1fr 1fr", gap:10 }}>
+                  <div style={{ display:"grid", gridTemplateColumns:form.esCuota?"1fr":"1fr 1fr", gap:10 }}>
                     <Field label={form.esCuota?"Monto total de la compra (S/.)":"Monto (S/.)"} error={errors.monto}>
                       <input type="number" min="0" step="0.01" placeholder="0.00" value={form.monto} onChange={e=>sf("monto",e.target.value)} style={errors.monto?{borderColor:"var(--red)"}:{}}/>
                     </Field>
-                    {!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") ? (
+                    {!form.esCuota && usandoTarjeta ? (
                       <Field label="¿Cuándo compraste?" error={errors.fecha}>
                         <input type="date" value={form.fechaCompra} onChange={e=>{
                           sf("fechaCompra",e.target.value);
-                          // Calcular fecha de cargo según ciclo
-                          if(e.target.value && tarjetaActiva) {
-                            const pp = getPrimerPago(e.target.value, tarjetaActiva.cierre);
-                            const fechaCargo = `${pp.anio}-${String(pp.mes).padStart(2,"0")}-${String(tarjetaActiva.pagoDia).padStart(2,"0")}`;
-                            sf("fecha", fechaCargo);
+                          if(e.target.value&&tarjetaActiva){
+                            const pp=getPrimerPago(e.target.value,tarjetaActiva.cierre);
+                            sf("fecha",`${pp.anio}-${String(pp.mes).padStart(2,"0")}-${String(tarjetaActiva.pagoDia).padStart(2,"0")}`);
                           }
                         }}/>
                       </Field>
@@ -538,73 +471,69 @@ export default function Registro() {
                     ) : null}
                   </div>
 
-                  <Field label="Metodo de pago" error={errors.metodo}>
+                  <Field label="Método de pago" error={errors.metodoId}>
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-                      {METODOS.map(m => (
-                        <button key={m.id} onClick={()=>sf("metodo",m.id)} style={{
-                          background: form.metodo===m.id?m.color+"22":"var(--bg-input)",
-                          border:`1px solid ${form.metodo===m.id?m.color+"66":"var(--border)"}`,
-                          borderRadius:"var(--radius-sm)", color: form.metodo===m.id?m.color:"var(--text-muted)",
-                          fontFamily:"var(--font-mono)", fontSize:10, padding:"8px 5px", cursor:"pointer", transition:"all .15s",
-                        }}>{m.label}</button>
+                      {metodos.map(m=>(
+                        <button key={m.id} onClick={()=>{ sf("metodoId",m.id); if(m.id!=="credito"){sf("tarjetaId",null);sf("esCuota",false);} }} style={{ background:form.metodoId===m.id?"var(--blue-bg)":"var(--bg-input)", border:`1px solid ${form.metodoId===m.id?"var(--blue)":"var(--border)"}`, borderRadius:"var(--radius-sm)", color:form.metodoId===m.id?"var(--blue)":"var(--text-muted)", fontFamily:"var(--font-mono)", fontSize:10, padding:"8px 5px", cursor:"pointer", transition:"all .15s" }}>{m.label}</button>
                       ))}
                     </div>
                   </Field>
 
+                  {/* Selector de tarjeta — solo si método es crédito */}
+                  {form.metodoId==="credito" && (
+                    <Field label="Tarjeta" error={errors.tarjetaId}>
+                      {state.tarjetasCredito.length===0 ? (
+                        <div style={{ padding:"10px 12px", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--text-ghost)" }}>
+                          No tienes tarjetas registradas. Ve a Tarjetas para agregar una.
+                        </div>
+                      ) : (
+                        <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                          {state.tarjetasCredito.map(t=>(
+                            <button key={t.id} onClick={()=>sf("tarjetaId",t.id)} style={{ padding:"10px 14px", display:"flex", alignItems:"center", gap:10, background:form.tarjetaId===t.id?"var(--bg-hover)":"var(--bg-input)", border:`1.5px solid ${form.tarjetaId===t.id?t.color:"var(--border)"}`, borderRadius:"var(--radius-md)", cursor:"pointer", transition:"all .15s" }}>
+                              <div style={{ width:10, height:10, borderRadius:"50%", background:t.color, flexShrink:0 }}/>
+                              <span style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:form.tarjetaId===t.id?t.color:"var(--text-muted)" }}>{t.nombre}</span>
+                              <span style={{ marginLeft:"auto", fontFamily:"var(--font-sans)", fontSize:9, color:"var(--text-ghost)" }}>{t.bancoLabel}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </Field>
+                  )}
+
                   {/* Info ciclo — compra directa con tarjeta */}
-                  {!form.esCuota && (form.metodo==="bcp"||form.metodo==="amex") && form.fechaCompra && tarjetaActiva && (() => {
-                    const pp = getPrimerPago(form.fechaCompra, tarjetaActiva.cierre);
+                  {!form.esCuota && usandoTarjeta && form.fechaCompra && tarjetaActiva?.cierre && (()=>{
+                    const pp=getPrimerPago(form.fechaCompra,tarjetaActiva.cierre);
                     return (
                       <div style={{ padding:"8px 12px", background:"var(--blue-bg)", border:"1px solid var(--blue-border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--blue)" }}>
-                        📅 Se registrará en: <strong>{MESES_LABEL[pp.mes]} {pp.anio}</strong> (dia {tarjetaActiva.pagoDia})
+                        📅 Se registrará en: <strong>{MESES_LABEL[pp.mes]} {pp.anio}</strong> (día {tarjetaActiva.pagoDia})
                       </div>
                     );
                   })()}
 
-                  {/* Toggle cuotas — solo si no es edición y método es tarjeta */}
-                  {!editId && (form.metodo==="bcp"||form.metodo==="amex") && (
+                  {/* Toggle cuotas */}
+                  {!editId && usandoTarjeta && (
                     <div>
-                      <div style={{ display:"flex", gap:6, marginBottom: form.esCuota?10:0 }}>
+                      <div style={{ display:"flex", gap:6, marginBottom:form.esCuota?10:0 }}>
                         {[{v:false,l:"Gasto directo"},{v:true,l:"Compra a cuotas"}].map(opt=>(
-                          <button key={String(opt.v)} onClick={()=>sf("esCuota",opt.v)} style={{
-                            flex:1, padding:"9px 0",
-                            background: form.esCuota===opt.v
-                              ? (opt.v?"var(--blue-bg)":"var(--bg-hover)")
-                              : "var(--bg-input)",
-                            border:`1.5px solid ${form.esCuota===opt.v
-                              ? (opt.v?"var(--blue)":"var(--border-light)")
-                              : "var(--border)"}`,
-                            borderRadius:"var(--radius-md)",
-                            color: form.esCuota===opt.v?(opt.v?"var(--blue)":"var(--text-secondary)"):"var(--text-muted)",
-                            fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, cursor:"pointer",
-                          }}>{opt.l}</button>
+                          <button key={String(opt.v)} onClick={()=>sf("esCuota",opt.v)} style={{ flex:1, padding:"9px 0", background:form.esCuota===opt.v?(opt.v?"var(--blue-bg)":"var(--bg-hover)"):"var(--bg-input)", border:`1.5px solid ${form.esCuota===opt.v?(opt.v?"var(--blue)":"var(--border-light)"):"var(--border)"}`, borderRadius:"var(--radius-md)", color:form.esCuota===opt.v?(opt.v?"var(--blue)":"var(--text-secondary)"):"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, cursor:"pointer" }}>{opt.l}</button>
                         ))}
                       </div>
 
-                      {/* Opciones de cuota */}
                       {form.esCuota && (
                         <div className="fade-up" style={{ display:"flex", flexDirection:"column", gap:10 }}>
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                            <Field label="Numero de cuotas" error={errors.totalCuotas}>
+                            <Field label="Número de cuotas" error={errors.totalCuotas}>
                               <input type="number" min="2" placeholder="12" value={form.totalCuotas} onChange={e=>sf("totalCuotas",e.target.value)} style={errors.totalCuotas?{borderColor:"var(--red)"}:{}}/>
                             </Field>
                             <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                               <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em" }}>Tipo de cuota</div>
                               <div style={{ display:"flex", gap:5 }}>
                                 {[{v:false,l:"Sin int."},{v:true,l:"Con int."}].map(opt=>(
-                                  <button key={String(opt.v)} onClick={()=>sf("conInteres",opt.v)} style={{
-                                    flex:1, padding:"10px 0",
-                                    background: form.conInteres===opt.v?(opt.v?"var(--red-bg)":"var(--green-bg)"):"var(--bg-input)",
-                                    border:`1px solid ${form.conInteres===opt.v?(opt.v?"var(--red)":"var(--green)"):"var(--border)"}`,
-                                    borderRadius:"var(--radius-sm)",
-                                    color: form.conInteres===opt.v?(opt.v?"var(--red)":"var(--green)"):"var(--text-muted)",
-                                    fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, cursor:"pointer",
-                                  }}>{opt.l}</button>
+                                  <button key={String(opt.v)} onClick={()=>sf("conInteres",opt.v)} style={{ flex:1, padding:"10px 0", background:form.conInteres===opt.v?(opt.v?"var(--red-bg)":"var(--green-bg)"):"var(--bg-input)", border:`1px solid ${form.conInteres===opt.v?(opt.v?"var(--red)":"var(--green)"):"var(--border)"}`, borderRadius:"var(--radius-sm)", color:form.conInteres===opt.v?(opt.v?"var(--red)":"var(--green)"):"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:9, fontWeight:700, cursor:"pointer" }}>{opt.l}</button>
                                 ))}
                               </div>
                             </div>
                           </div>
-
                           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
                             <Field label="¿Cuándo compraste?">
                               <input type="date" value={form.fechaCompra} onChange={e=>sf("fechaCompra",e.target.value)}/>
@@ -613,39 +542,25 @@ export default function Registro() {
                               <input type="number" min="0" placeholder="1" value={form.pagadasYa} onChange={e=>sf("pagadasYa",e.target.value)}/>
                             </Field>
                           </div>
-
                           {primerPago && (
                             <div style={{ padding:"8px 12px", background:"var(--blue-bg)", border:"1px solid var(--blue-border)", borderRadius:"var(--radius-sm)", fontSize:10, color:"var(--blue)" }}>
-                              📅 Primer pago: <strong>{MESES_LABEL[primerPago.mes]} {primerPago.anio}</strong>
-                              {" "}(dia {tarjetaActiva?.pagoDia})
+                              📅 Primer pago: <strong>{MESES_LABEL[primerPago.mes]} {primerPago.anio}</strong> (día {tarjetaActiva?.pagoDia})
                             </div>
                           )}
-
                           {!form.conInteres && (
-                            <Field label="Cuota mensual (S/.) — si difiere del calculo automatico">
+                            <Field label="Cuota mensual (S/.) — si difiere del cálculo automático">
                               <input type="number" placeholder={cuotaPreview?`Auto: S/. ${fmt(cuotaPreview.sinInt)}`:"0.00"} value={form.cuotaManual} onChange={e=>sf("cuotaManual",e.target.value)}/>
                             </Field>
                           )}
-
-                          {/* Preview */}
                           {cuotaPreview && (
                             <div style={{ background:"var(--blue-bg)", border:`1px solid ${tarjetaActiva?.color||"var(--blue)"}44`, borderRadius:"var(--radius-md)", padding:"11px 14px" }}>
-                              <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Resumen de la compra</div>
+                              <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:8 }}>Resumen</div>
                               <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                                 {form.conInteres && (
                                   <>
-                                    <div style={{ display:"flex", justifyContent:"space-between" }}>
-                                      <span style={{ fontSize:10, color:"var(--text-muted)" }}>Sin intereses seria</span>
-                                      <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-dim)" }}>S/. {fmt(cuotaPreview.sinInt)}/mes</span>
-                                    </div>
-                                    <div style={{ display:"flex", justifyContent:"space-between" }}>
-                                      <span style={{ fontSize:10, color:"var(--text-muted)" }}>Total a pagar</span>
-                                      <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--red)" }}>S/. {fmt(cuotaPreview.totalPagar)}</span>
-                                    </div>
-                                    <div style={{ display:"flex", justifyContent:"space-between" }}>
-                                      <span style={{ fontSize:10, color:"var(--text-muted)" }}>Interes total</span>
-                                      <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--red)" }}>S/. {fmt(cuotaPreview.interesTotal)}</span>
-                                    </div>
+                                    <div style={{ display:"flex", justifyContent:"space-between" }}><span style={{ fontSize:10, color:"var(--text-muted)" }}>Sin intereses sería</span><span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--text-dim)" }}>S/. {fmt(cuotaPreview.sinInt)}/mes</span></div>
+                                    <div style={{ display:"flex", justifyContent:"space-between" }}><span style={{ fontSize:10, color:"var(--text-muted)" }}>Total a pagar</span><span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--red)" }}>S/. {fmt(cuotaPreview.totalPagar)}</span></div>
+                                    <div style={{ display:"flex", justifyContent:"space-between" }}><span style={{ fontSize:10, color:"var(--text-muted)" }}>Interés total</span><span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:"var(--red)" }}>S/. {fmt(cuotaPreview.interesTotal)}</span></div>
                                   </>
                                 )}
                                 <div style={{ display:"flex", justifyContent:"space-between", borderTop:"1px solid var(--blue-border)", paddingTop:6, marginTop:2 }}>
@@ -653,10 +568,7 @@ export default function Registro() {
                                   <span style={{ fontFamily:"var(--font-mono)", fontSize:17, color:tarjetaActiva?.color||"var(--blue)" }}>S/. {fmt(cuotaPreview.cuota)}</span>
                                 </div>
                                 <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"right" }}>
-                                  {primerPago
-                                    ? `Pagos: ${MESES_LABEL[primerPago.mes]} ${primerPago.anio} → ${form.totalCuotas} meses`
-                                    : `Se crea recurrente para ${form.totalCuotas} meses`
-                                  }
+                                  {primerPago?`Pagos: ${MESES_LABEL[primerPago.mes]} ${primerPago.anio} → ${form.totalCuotas} meses`:`Se crea recurrente por ${form.totalCuotas} meses`}
                                 </div>
                               </div>
                             </div>
@@ -667,33 +579,31 @@ export default function Registro() {
                   )}
 
                   <Field label="Notas (opcional)">
-                    <textarea rows={2} placeholder="Descripcion adicional..." value={form.notas} onChange={e=>sf("notas",e.target.value)} style={{ minHeight:50 }}/>
+                    <textarea rows={2} placeholder="Descripción adicional..." value={form.notas} onChange={e=>sf("notas",e.target.value)} style={{ minHeight:50 }}/>
                   </Field>
 
-                  {/* Recurrente — solo gasto simple, no edicion, no cuota, no tarjeta */}
-                  {!editId && !form.esCuota && form.metodo !== "bcp" && form.metodo !== "amex" && (
+                  {!editId && !form.esCuota && form.metodoId!=="credito" && (
                     <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"10px 12px", background:form.recurrente?"var(--yellow-bg)":"var(--bg-input)", border:`1px solid ${form.recurrente?"var(--yellow-border)":"var(--border)"}`, borderRadius:"var(--radius-md)", transition:"all .15s" }}>
                       <input type="checkbox" checked={form.recurrente} onChange={e=>sf("recurrente",e.target.checked)} style={{ width:14, height:14, accentColor:"var(--yellow)" }}/>
                       <div>
                         <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:form.recurrente?"var(--yellow)":"var(--text-muted)" }}>Repetir cada mes</div>
-                        <div style={{ fontSize:9, color:"var(--text-ghost)", marginTop:2 }}>Se registrara automaticamente al inicio del mes</div>
+                        <div style={{ fontSize:9, color:"var(--text-ghost)", marginTop:2 }}>Se registrará automáticamente al inicio del mes</div>
                       </div>
                     </label>
                   )}
 
                   <Btn variant="primary" size="full" onClick={submit} style={editId?{background:"linear-gradient(135deg,#3B82F6,#60A5FA)"}:{}}>
-                    {editId ? "Guardar cambios" : form.esCuota ? `Registrar compra a cuotas` : "Registrar gasto"}
+                    {editId?"Guardar cambios":form.esCuota?"Registrar compra a cuotas":"Registrar gasto"}
                   </Btn>
                 </div>
               </Card>
             )}
 
-            {/* Desglose por categoria */}
-            {porCat.length > 0 && tabVista==="gastos" && (
+            {porCat.length>0&&tabVista==="gastos"&&(
               <Card>
-                <SectionTitle>Por categoria</SectionTitle>
+                <SectionTitle>Por categoría</SectionTitle>
                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {porCat.slice(0,7).map((c,i) => (
+                  {porCat.slice(0,7).map((c,i)=>(
                     <div key={i}>
                       <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:6 }}>

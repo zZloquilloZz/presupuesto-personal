@@ -1,91 +1,68 @@
-// Cronograma navegable con deudas por mes
-const CRONOGRAMA = {
-  bcp: [
-    { mes:"Enero",      mesIdx:0,  anio:2026, desde:"10 Dic", hasta:"09 Ene", pago:"05 Feb" },
-    { mes:"Febrero",    mesIdx:1,  anio:2026, desde:"10 Ene", hasta:"09 Feb", pago:"05 Mar" },
-    { mes:"Marzo",      mesIdx:2,  anio:2026, desde:"10 Feb", hasta:"09 Mar", pago:"02 Abr" },
-    { mes:"Abril",      mesIdx:3,  anio:2026, desde:"10 Mar", hasta:"09 Abr", pago:"04 May" },
-    { mes:"Mayo",       mesIdx:4,  anio:2026, desde:"10 Abr", hasta:"09 May", pago:"05 Jun" },
-    { mes:"Junio",      mesIdx:5,  anio:2026, desde:"10 May", hasta:"09 Jun", pago:"03 Jul" },
-    { mes:"Julio",      mesIdx:6,  anio:2026, desde:"10 Jun", hasta:"09 Jul", pago:"07 Ago" },
-    { mes:"Agosto",     mesIdx:7,  anio:2026, desde:"10 Jul", hasta:"09 Ago", pago:"04 Sep" },
-    { mes:"Septiembre", mesIdx:8,  anio:2026, desde:"10 Ago", hasta:"09 Sep", pago:"04 Oct" },
-    { mes:"Octubre",    mesIdx:9,  anio:2026, desde:"10 Sep", hasta:"09 Oct", pago:"05 Nov" },
-    { mes:"Noviembre",  mesIdx:10, anio:2026, desde:"10 Oct", hasta:"09 Nov", pago:"04 Dic" },
-    { mes:"Diciembre",  mesIdx:11, anio:2026, desde:"10 Nov", hasta:"09 Dic", pago:"08 Ene" },
-  ],
-  amex: [
-    { mes:"Enero",      mesIdx:0,  anio:2026, desde:"06 Dic", hasta:"05 Ene", pago:"02 Feb" },
-    { mes:"Febrero",    mesIdx:1,  anio:2026, desde:"06 Ene", hasta:"05 Feb", pago:"02 Mar" },
-    { mes:"Marzo",      mesIdx:2,  anio:2026, desde:"06 Feb", hasta:"05 Mar", pago:"02 Abr" },
-    { mes:"Abril",      mesIdx:3,  anio:2026, desde:"06 Mar", hasta:"05 Abr", pago:"04 May" },
-    { mes:"Mayo",       mesIdx:4,  anio:2026, desde:"06 Abr", hasta:"05 May", pago:"02 Jun" },
-    { mes:"Junio",      mesIdx:5,  anio:2026, desde:"06 May", hasta:"05 Jun", pago:"02 Jul" },
-    { mes:"Julio",      mesIdx:6,  anio:2026, desde:"06 Jun", hasta:"05 Jul", pago:"03 Ago" },
-    { mes:"Agosto",     mesIdx:7,  anio:2026, desde:"06 Jul", hasta:"05 Ago", pago:"02 Sep" },
-    { mes:"Septiembre", mesIdx:8,  anio:2026, desde:"06 Ago", hasta:"05 Sep", pago:"02 Oct" },
-    { mes:"Octubre",    mesIdx:9,  anio:2026, desde:"06 Sep", hasta:"05 Oct", pago:"03 Nov" },
-    { mes:"Noviembre",  mesIdx:10, anio:2026, desde:"06 Oct", hasta:"05 Nov", pago:"02 Dic" },
-    { mes:"Diciembre",  mesIdx:11, anio:2026, desde:"06 Nov", hasta:"05 Dic", pago:"05 Ene" },
-  ],
-};
+// Tarjetas de crédito — dinámico, lee state.tarjetasCredito desde Supabase
+// El usuario puede agregar/editar/eliminar tarjetas
 
-function CronogramaCard({ tarjetaId, tarjeta, cuotas, gastos }) {
-  const hoy = new Date();
-  const mesActual = hoy.getMonth();
+import { useState } from "react";
+import { useApp } from "../context/AppContext";
+import { fmt, diasPara } from "../utils";
+import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field } from "../components/UI";
+
+const MESES_LABEL = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"];
+
+// ── CronogramaCard ──────────────────────────────────────────────────────────
+function CronogramaCard({ tarjeta, cuotas, gastos }) {
+  const hoy        = new Date();
+  const mesActual  = hoy.getMonth();   // 0-indexed
   const anioActual = hoy.getFullYear();
   const [mesSel, setMesSel] = useState(mesActual);
-  const cronograma = CRONOGRAMA[tarjetaId] || [];
-  const entrada = cronograma.find(e => e.mesIdx === mesSel) || cronograma[mesActual];
 
-  // Gastos directos cuya fecha de cargo cae en este mes de pago
-  const gastosDelMes = (gastos || []).filter(g => {
-    if (g.metodo !== tarjetaId || g.esCuota) return false;
+  // Gastos directos cuya fecha de cargo cae en este mes
+  const gastosDelMes = (gastos||[]).filter(g => {
+    if (g.tarjetaId !== tarjeta.id || g.esCuota) return false;
     const d = new Date(g.fecha);
     return d.getMonth() === mesSel && d.getFullYear() === anioActual;
   });
 
-  // Cuotas que se pagan en este mes
-  const cuotasDelMes = (cuotas || []).filter(c => {
-    const anioIni = c.anioPrimerPago || anioActual;
-    const mesIni  = c.mesPrimerPago  || (mesActual + 1);
-    const diff    = (anioActual - anioIni) * 12 + (mesSel - (mesIni - 1));
+  // Cuotas que se pagan en este mes (mesSel es 0-indexed, mesPrimerPago es 1-indexed)
+  const cuotasDelMes = (cuotas||[]).filter(c => {
+    const anioIni  = c.anioPrimerPago || anioActual;
+    const mesIni   = c.mesPrimerPago  || (mesActual + 1); // 1-indexed
+    const diff     = (anioActual - anioIni) * 12 + (mesSel - (mesIni - 1));
     const numCuota = diff + 1;
-    return numCuota >= 1 && numCuota <= parseInt(c.totalCuotas || 0);
+    return numCuota >= 1 && numCuota <= parseInt(c.totalCuotas||0);
   });
 
-  const totalMes = gastosDelMes.reduce((s,g) => s + (parseFloat(g.monto)||0), 0)
-                 + cuotasDelMes.reduce((s,c) => s + (parseFloat(c.cuota)||0), 0);
+  const totalMes = gastosDelMes.reduce((s,g)=>s+(parseFloat(g.monto)||0),0)
+                 + cuotasDelMes.reduce((s,c)=>s+(parseFloat(c.cuota)||0),0);
   const esActual = mesSel === mesActual;
+  const mesNombre = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mesSel];
 
   return (
     <Card>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <SectionTitle style={{ marginBottom:0 }}>Cronograma {tarjeta.nombre}</SectionTitle>
+        <SectionTitle style={{marginBottom:0}}>Cronograma {tarjeta.nombre}</SectionTitle>
         <div style={{ display:"flex", gap:5, alignItems:"center" }}>
-          <button onClick={() => setMesSel(m => Math.max(0, m-1))} disabled={mesSel===0}
+          <button onClick={()=>setMesSel(m=>Math.max(0,m-1))} disabled={mesSel===0}
             style={{ background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-muted)", width:24, height:24, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>‹</button>
-          <span style={{ fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, color: esActual ? tarjeta.color : "var(--text-secondary)", minWidth:60, textAlign:"center" }}>
-            {entrada?.mes}
-            {esActual && <span style={{ display:"block", fontSize:8, color:tarjeta.color }}>MES ACTUAL</span>}
+          <span style={{ fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, color:esActual?tarjeta.color:"var(--text-secondary)", minWidth:70, textAlign:"center" }}>
+            {mesNombre}
+            {esActual&&<span style={{ display:"block", fontSize:8, color:tarjeta.color }}>MES ACTUAL</span>}
           </span>
-          <button onClick={() => setMesSel(m => Math.min(11, m+1))} disabled={mesSel===11}
+          <button onClick={()=>setMesSel(m=>Math.min(11,m+1))} disabled={mesSel===11}
             style={{ background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-muted)", width:24, height:24, cursor:"pointer", fontSize:12, display:"flex", alignItems:"center", justifyContent:"center" }}>›</button>
         </div>
       </div>
 
-      {entrada && (
+      {tarjeta.cierre && (
         <div style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", marginBottom:10, padding:"6px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)" }}>
-          Ciclo: {entrada.desde} → {entrada.hasta} — Pago límite: <span style={{ color:tarjeta.color, fontWeight:700 }}>{entrada.pago}</span>
+          Cierre día {tarjeta.cierre} — Pago día <span style={{ color:tarjeta.color, fontWeight:700 }}>{tarjeta.pagoDia}</span>
         </div>
       )}
 
-      {/* Lista de deudas de ese mes */}
-      {gastosDelMes.length === 0 && cuotasDelMes.length === 0 ? (
+      {gastosDelMes.length===0&&cuotasDelMes.length===0 ? (
         <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"center", padding:"14px 0", fontFamily:"var(--font-sans)" }}>Sin compras registradas en este ciclo</div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-          {gastosDelMes.map((g,i) => (
+          {gastosDelMes.map((g,i)=>(
             <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", borderLeft:`2px solid ${tarjeta.color}` }}>
               <div>
                 <div style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{g.descripcion}</div>
@@ -94,10 +71,10 @@ function CronogramaCard({ tarjetaId, tarjeta, cuotas, gastos }) {
               <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:tarjeta.color }}>S/. {fmt(g.monto)}</span>
             </div>
           ))}
-          {cuotasDelMes.map((c,i) => {
-            const anioIni  = c.anioPrimerPago || anioActual;
-            const mesIni   = c.mesPrimerPago  || (mesActual + 1);
-            const numCuota = (anioActual - anioIni) * 12 + (mesSel - (mesIni - 1)) + 1;
+          {cuotasDelMes.map((c,i)=>{
+            const anioIni  = c.anioPrimerPago||anioActual;
+            const mesIni   = c.mesPrimerPago||(mesActual+1);
+            const numCuota = (anioActual-anioIni)*12+(mesSel-(mesIni-1))+1;
             return (
               <div key={"c"+i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 10px", background:"var(--blue-bg)", borderRadius:"var(--radius-sm)", borderLeft:"2px solid var(--blue)" }}>
                 <div>
@@ -118,325 +95,352 @@ function CronogramaCard({ tarjetaId, tarjeta, cuotas, gastos }) {
   );
 }
 
-// Panel de Tarjetas — solo lectura.
-// Las cuotas se crean desde Registro al registrar una compra a cuotas.
+// ── PanelTarjeta ─────────────────────────────────────────────────────────────
+function PanelTarjeta({ tarjeta, cuotas, gastos, onEdit, onDelete }) {
+  const hoy        = new Date();
+  const mesActual  = hoy.getMonth() + 1;   // 1-indexed
+  const anioActual = hoy.getFullYear();
+  const diaHoy     = hoy.getDate();
 
-import { useState } from "react";
-import { useApp } from "../context/AppContext";
-import { TARJETAS } from "../constants";
-import { fmt, diasPara } from "../utils";
-import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar } from "../components/UI";
-
-const CRONOGRAMA_BCP = [
-  { mes:"Enero",     desde:"10 Dic", hasta:"09 Ene", pago:"Jue 05 Feb" },
-  { mes:"Febrero",   desde:"10 Ene", hasta:"09 Feb", pago:"Jue 05 Mar" },
-  { mes:"Marzo",     desde:"10 Feb", hasta:"09 Mar", pago:"Jue 02 Abr" },
-  { mes:"Abril",     desde:"10 Mar", hasta:"09 Abr", pago:"Lun 04 May" },
-  { mes:"Mayo",      desde:"10 Abr", hasta:"09 May", pago:"Jue 05 Jun" },
-  { mes:"Junio",     desde:"10 May", hasta:"09 Jun", pago:"Vie 03 Jul" },
-  { mes:"Julio",     desde:"10 Jun", hasta:"09 Jul", pago:"Jue 07 Ago" },
-  { mes:"Agosto",    desde:"10 Jul", hasta:"09 Ago", pago:"Jue 04 Sep" },
-  { mes:"Septiembre",desde:"10 Ago", hasta:"09 Sep", pago:"Sab 04 Oct" },
-  { mes:"Octubre",   desde:"10 Sep", hasta:"09 Oct", pago:"Mie 05 Nov" },
-  { mes:"Noviembre", desde:"10 Oct", hasta:"09 Nov", pago:"Jue 04 Dic" },
-  { mes:"Diciembre", desde:"10 Nov", hasta:"09 Dic", pago:"Jue 08 Ene" },
-];
-const MES_ACTUAL = new Date().getMonth();
-
-function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos, onConfig }) {
-  // Si la tarjeta no esta configurada, mostrar prompt
-  if (tarjeta.cierre == null) {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"60px 20px", gap:16 }}>
-        <div style={{ fontSize:32, opacity:.3 }}>💳</div>
-        <div style={{ fontFamily:"var(--font-sans)", fontSize:14, fontWeight:700, color:"var(--text-secondary)" }}>Tarjeta sin configurar</div>
-        <div style={{ fontFamily:"var(--font-sans)", fontSize:11, color:"var(--text-ghost)", textAlign:"center", maxWidth:280 }}>
-          Ingresa los datos de tu tarjeta (línea de crédito, fechas de cierre y pago) para ver tu resumen.
-        </div>
-        <button onClick={onConfig} style={{
-          background:"var(--blue-bg)", border:"1px solid var(--blue)", borderRadius:"var(--radius-md)",
-          color:"var(--blue)", fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700,
-          padding:"10px 20px", cursor:"pointer",
-        }}>⚙ Configurar ahora</button>
-      </div>
-    );
-  }
-  const hoyT2        = new Date();
-  const mesActualT2  = hoyT2.getMonth() + 1;
-  const anioActualT2 = hoyT2.getFullYear();
-  const diaHoyT2     = hoyT2.getDate();
-
-  // Pagadas automaticas segun mes actual
-  const calcPagadasAuto = (cuota) => {
-    const anioInicio = cuota.anioPrimerPago || anioActualT2;
-    const mesInicio  = cuota.mesPrimerPago  || mesActualT2;
-    const diff = (anioActualT2 - anioInicio) * 12 + (mesActualT2 - mesInicio) + 1;
-    return Math.min(Math.max(diff, parseInt(cuota.pagadas)||0), parseInt(cuota.totalCuotas)||0);
+  const calcPagadasAuto = (c) => {
+    const anioIni = c.anioPrimerPago||anioActual;
+    const mesIni  = c.mesPrimerPago||mesActual;
+    const diff = (anioActual-anioIni)*12+(mesActual-mesIni)+1;
+    return Math.min(Math.max(diff,parseInt(c.pagadas)||0),parseInt(c.totalCuotas)||0);
   };
-  const totalCuotasMes = cuotas.reduce((s,c) => {
+
+  const totalCuotasMes = cuotas.reduce((s,c)=>{
     const pAuto  = calcPagadasAuto(c);
     const totalC = parseInt(c.totalCuotas)||0;
-    return pAuto < totalC ? s + (parseFloat(c.cuota)||0) : s;
-  }, 0);
+    return pAuto<totalC ? s+(parseFloat(c.cuota)||0) : s;
+  },0);
 
-  // Linea usada = todos los gastos directos aun no pagados + deuda cuotas pendientes
-  // Un gasto "no pagado" es aquel cuya fecha de cargo aun no llego al dia de pago
-  const calcLineaUsada = (tId, pagoDia, gastosAll) => {
-    const hoy  = new Date();
-    const dia  = hoy.getDate();
-    const mes  = hoy.getMonth();
-    const anio = hoy.getFullYear();
-
-    // Ultimo dia de pago que ya paso (esa deuda ya fue pagada)
-    let ultimoPagoYaRealizado;
-    if (dia >= pagoDia) {
-      ultimoPagoYaRealizado = new Date(anio, mes, pagoDia);
+  // Línea de crédito usada — gastos directos no pagados + deuda cuotas pendientes
+  const calcLineaUsada = () => {
+    const pagoDia = tarjeta.pagoDia;
+    let ultimoPago;
+    if (diaHoy>=pagoDia) {
+      ultimoPago = new Date(anioActual,hoy.getMonth(),pagoDia);
     } else {
-      ultimoPagoYaRealizado = new Date(anio, mes - 1, pagoDia);
+      ultimoPago = new Date(anioActual,hoy.getMonth()-1,pagoDia);
     }
-
-    // Gastos directos con fecha de cargo DESPUES del ultimo pago realizado = pendientes
-    const directos = (gastosAll || []).filter(g => g.metodo === tId && !g.esCuota);
-    return directos
-      .filter(g => new Date(g.fecha) > ultimoPagoYaRealizado)
-      .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
+    const directosPendientes = (gastos||[])
+      .filter(g=>g.tarjetaId===tarjeta.id&&!g.esCuota)
+      .filter(g=>new Date(g.fecha)>ultimoPago)
+      .reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+    const deudaCuotas = cuotas.reduce((s,c)=>{
+      const pAuto  = calcPagadasAuto(c);
+      const totalC = parseInt(c.totalCuotas)||0;
+      const rest   = totalC-pAuto;
+      return rest>0 ? s+(parseFloat(c.cuota)||0)*rest : s;
+    },0);
+    return directosPendientes+deudaCuotas;
   };
 
-  const totalDeudaCuotas = cuotas.reduce((s,c) => {
-    const pAuto = calcPagadasAuto(c);
-    const rest  = Math.max(0, (parseInt(c.totalCuotas)||0) - pAuto);
-    return s + rest * (parseFloat(c.cuota)||0);
-  }, 0);
+  const lineaUsada    = calcLineaUsada();
+  const lineaDisp     = (tarjeta.lineaCredito||0)-lineaUsada;
+  const pctLinea      = tarjeta.lineaCredito ? (lineaUsada/tarjeta.lineaCredito)*100 : 0;
+  const diasProxPago  = tarjeta.pagoDia ? diasPara(tarjeta.pagoDia) : null;
 
-  const lineaUsada = calcLineaUsada(tarjetaId, tarjeta.pagoDia, gastos) + totalDeudaCuotas;
-  const lineaLibre     = Math.max(0, tarjeta.lineaCredito - lineaUsada);
-  const pctUsado       = tarjeta.lineaCredito > 0 ? (lineaUsada / tarjeta.lineaCredito) * 100 : 0;
-  const diasPago       = diasPara(tarjeta.pagoDia);
+  // Gastos directos pendientes de pago
+  const directosPendientes = (gastos||[]).filter(g=>{
+    if(g.tarjetaId!==tarjeta.id||g.esCuota) return false;
+    const pagoDia = tarjeta.pagoDia;
+    let ultimoPago;
+    if(diaHoy>=pagoDia){
+      ultimoPago = new Date(anioActual,hoy.getMonth(),pagoDia);
+    } else {
+      ultimoPago = new Date(anioActual,hoy.getMonth()-1,pagoDia);
+    }
+    return new Date(g.fecha)>ultimoPago;
+  });
 
   return (
     <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-      {/* KPIs */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
-        <KPICard label="Cuota total mes"  value={`S/. ${fmt(totalCuotasMes)}`} valueColor={tarjeta.color} delay={0}/>
-        <KPICard label="Deuda pendiente"  value={`S/. ${fmt(totalDeudaCuotas)}`}     valueColor="var(--red)" bg="var(--red-bg)" border="var(--red-border)" delay={0.06}/>
-        <KPICard label="Proximo pago"     value={`${diasPago} dias`}           valueColor={diasPago<=5?"var(--red)":diasPago<=10?"var(--yellow)":"var(--green)"} sub={`Dia ${tarjeta.pagoDia} de cada mes`} delay={0.12}/>
-        <KPICard label="Cuotas activas"   value={`${cuotas.filter(c=>(parseInt(c.totalCuotas)||0)-(parseInt(c.pagadas)||0)>0).length}`} valueColor={tarjeta.color} sub={`${cuotas.reduce((s,c)=>s+Math.max(0,(parseInt(c.totalCuotas)||0)-(parseInt(c.pagadas)||0)),0)} pagos pendientes`} delay={0.18}/>
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 280px", gap:16 }}>
-        {/* Cuotas activas */}
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          <div style={{ fontFamily:"var(--font-sans)", fontSize:12, fontWeight:700, color:tarjeta.color, marginBottom:2 }}>
-            {tarjeta.nombre} — Cuotas activas
-            <span style={{ fontSize:9, color:"var(--text-ghost)", fontWeight:400, marginLeft:10 }}>
-              Para agregar cuotas ve a Registro → Compra a cuotas
-            </span>
+      {/* Header tarjeta */}
+      <Card style={{ borderColor:tarjeta.color+"44" }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <div style={{ width:10, height:10, borderRadius:"50%", background:tarjeta.color }}/>
+              <span style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:"var(--text-dim)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{tarjeta.bancoLabel}</span>
+            </div>
+            <div style={{ fontFamily:"var(--font-sans)", fontSize:16, fontWeight:800, color:"var(--text-primary)" }}>{tarjeta.nombre}</div>
           </div>
-
-          {/* Linea de credito */}
-          <Card style={{ borderColor: tarjeta.color+"33" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8, alignItems:"center" }}>
-              <span style={{ fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, color:"var(--text-secondary)" }}>Linea de credito</span>
-              <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-dim)" }}>S/. {fmt(lineaLibre)} libre de S/. {fmt(tarjeta.lineaCredito)}</span>
-            </div>
-            <ProgressBar pct={pctUsado} color={pctUsado>80?"var(--red)":pctUsado>50?"var(--yellow)":tarjeta.color} height={8}/>
-            <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-              <span style={{ fontSize:9, color:"var(--text-ghost)" }}>Usado: S/. {fmt(lineaUsada)} ({pctUsado.toFixed(0)}%)</span>
-              <span style={{ fontSize:9, color:tarjeta.color }}>Disponible: S/. {fmt(lineaLibre)}</span>
-            </div>
-          </Card>
-
-          {cuotas.length === 0 ? (
-            <div style={{ padding:"36px 20px", textAlign:"center", background:"var(--bg-card)", border:"1px dashed var(--border)", borderRadius:"var(--radius-lg)", color:"var(--text-ghost)" }}>
-              <div style={{ fontSize:20, marginBottom:8, opacity:.3 }}>[ ]</div>
-              <div style={{ fontFamily:"var(--font-sans)", fontSize:12 }}>Sin cuotas en {tarjeta.nombre}</div>
-              <div style={{ fontSize:10, color:"var(--text-ghost)", marginTop:6 }}>Ve a Registro y selecciona "Compra a cuotas"</div>
-            </div>
-          ) : (
-            cuotas.map((c,i) => {
-              const hoyT = new Date();
-              const mesActualT = hoyT.getMonth() + 1;
-              const anioActualT = hoyT.getFullYear();
-              const anioInicio = c.anioPrimerPago || anioActualT;
-              const mesInicio  = c.mesPrimerPago  || mesActualT;
-              const pagadasAuto = Math.min(
-                Math.max((anioActualT - anioInicio)*12 + (mesActualT - mesInicio) + 1, parseInt(c.pagadas)||0),
-                parseInt(c.totalCuotas)||0
-              );
-              const restantes = Math.max(0, (parseInt(c.totalCuotas)||0) - pagadasAuto);
-              const pct       = parseInt(c.totalCuotas)>0 ? (pagadasAuto/parseInt(c.totalCuotas))*100 : 0;
-              const deudaRest = restantes * parseFloat(c.cuota||0);
-              const liquidada = restantes <= 0;
-              const totalPago = parseFloat(c.cuota||0) * parseInt(c.totalCuotas||0);
-              const intTotal  = c.conInteres && c.montoTotal ? totalPago - c.montoTotal : 0;
-              return (
-                <Card key={c.id||i} className="fade-up" style={{ animationDelay:`${i*.05}s`, borderColor: liquidada?"var(--green-border)":tarjeta.color+"33", opacity:liquidada?.75:1 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                    <div>
-                      <div style={{ fontFamily:"var(--font-sans)", fontSize:13, fontWeight:700, color:"var(--text-primary)", marginBottom:4 }}>{c.desc}</div>
-                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                        <Badge color={tarjeta.color}>{tarjeta.nombre}</Badge>
-                        {c.conInteres
-                          ? <Badge color="var(--red)">Con intereses TEA {tarjeta.tea}%</Badge>
-                          : <Badge color="var(--green)">Sin intereses</Badge>}
-                        {liquidada
-                          ? <Badge color="var(--green)">LIQUIDADA</Badge>
-                          : <Badge color="var(--text-muted)">{restantes} cuotas restantes</Badge>}
-                      </div>
-                    </div>
-                    <div style={{ textAlign:"right" }}>
-                      <div style={{ fontFamily:"var(--font-mono)", fontSize:16, color:liquidada?"var(--green)":tarjeta.color }}>S/. {fmt(c.cuota)}/mes</div>
-                      <div style={{ fontSize:9, color:"var(--text-dim)", marginTop:2 }}>Deuda: S/. {fmt(deudaRest)}</div>
-                    </div>
-                  </div>
-                  <ProgressBar pct={pct} color={liquidada?"var(--green)":tarjeta.color} height={5} style={{marginBottom:8}}/>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                    <div style={{ background:"var(--bg-input)", borderRadius:"var(--radius-sm)", padding:"6px 10px" }}>
-                      <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>Progreso</div>
-                      <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-secondary)" }}>{pagadasAuto}/{c.totalCuotas} ({pct.toFixed(0)}%)</div>
-                    </div>
-                    {c.montoTotal>0 && (
-                      <div style={{ background:"var(--bg-input)", borderRadius:"var(--radius-sm)", padding:"6px 10px" }}>
-                        <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>Compra original</div>
-                        <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-secondary)" }}>S/. {fmt(c.montoTotal)}</div>
-                      </div>
-                    )}
-                    {c.conInteres && intTotal>0 && (
-                      <div style={{ background:"var(--red-bg)", border:"1px solid var(--red-border)", borderRadius:"var(--radius-sm)", padding:"6px 10px" }}>
-                        <div style={{ fontSize:8, color:"var(--red)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", marginBottom:2 }}>Interes total</div>
-                        <div style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--red)" }}>S/. {fmt(intTotal)}</div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              );
-            })
-          )}
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={onEdit} style={{ background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, padding:"6px 12px", cursor:"pointer" }}>✏ Editar</button>
+            <button onClick={onDelete} style={{ background:"none", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontSize:10, padding:"6px 10px", cursor:"pointer" }} onMouseOver={e=>e.currentTarget.style.color="var(--red)"} onMouseOut={e=>e.currentTarget.style.color="var(--text-ghost)"}>✕</button>
+          </div>
         </div>
 
-        {/* Panel derecho */}
-        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-          <Card style={{ borderColor:tarjeta.color+"33" }}>
-            <SectionTitle color={tarjeta.color}>Datos de la tarjeta</SectionTitle>
-            <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
-              {[
-                {l:"Linea de credito", v:`S/. ${fmt(tarjeta.lineaCredito)}`, c:tarjeta.color},
-                {l:"TEA",              v:`${tarjeta.tea}%`,                   c:"var(--text-secondary)"},
-                {l:"TCEA",             v:`${tarjeta.tcea}%`,                  c:"var(--red)"},
-                {l:"Cierre ciclo",     v:`Dia ${tarjeta.cierre}`,             c:"var(--text-secondary)"},
-                {l:"Limite pago",      v:`Dia ${tarjeta.pagoDia}`,            c:tarjeta.color},
-                {l:"Dias para pago",   v:`${diasPago} dias`,                  c:diasPago<=5?"var(--red)":diasPago<=10?"var(--yellow)":"var(--green)"},
-              ].map((r,i)=>(
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"7px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)" }}>
-                  <span style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>{r.l}</span>
-                  <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:r.c }}>{r.v}</span>
+        {/* KPIs tarjeta */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:16 }}>
+          {[
+            { l:"Línea de crédito", v:`S/. ${fmt(tarjeta.lineaCredito||0)}`, c:"var(--text-primary)" },
+            { l:"Cuotas este mes",  v:`S/. ${fmt(totalCuotasMes)}`,          c:"var(--blue)"         },
+            { l:"Próximo pago",     v:diasProxPago!=null?`${diasProxPago} días`:"—", c:diasProxPago!=null&&diasProxPago<=7?"var(--red)":"var(--green)" },
+          ].map((kpi,i)=>(
+            <div key={i} style={{ background:"var(--bg-input)", borderRadius:"var(--radius-md)", padding:"10px 12px" }}>
+              <div style={{ fontSize:8, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>{kpi.l}</div>
+              <div style={{ fontFamily:"var(--font-mono)", fontSize:14, color:kpi.c, fontWeight:600 }}>{kpi.v}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Barra línea de crédito */}
+        <div style={{ marginBottom:8 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+            <span style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)" }}>Línea usada</span>
+            <span style={{ fontFamily:"var(--font-mono)", fontSize:10, color:pctLinea>80?"var(--red)":pctLinea>60?"var(--yellow)":"var(--green)" }}>S/. {fmt(lineaUsada)} / S/. {fmt(tarjeta.lineaCredito||0)}</span>
+          </div>
+          <ProgressBar pct={pctLinea} color={pctLinea>80?"var(--red)":pctLinea>60?"var(--yellow)":"var(--green)"}/>
+          <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"right", marginTop:3 }}>
+            S/. {fmt(lineaDisp)} disponible
+          </div>
+        </div>
+
+        {/* Info cierre/pago */}
+        <div style={{ display:"flex", gap:8 }}>
+          <div style={{ flex:1, padding:"8px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", fontSize:9, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>
+            Cierre: <strong>día {tarjeta.cierre}</strong>
+          </div>
+          <div style={{ flex:1, padding:"8px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", fontSize:9, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>
+            Pago: <strong style={{color:tarjeta.color}}>día {tarjeta.pagoDia}</strong>
+          </div>
+        </div>
+      </Card>
+
+      {/* Compras directas pendientes */}
+      {directosPendientes.length>0&&(
+        <Card>
+          <SectionTitle>Compras directas pendientes</SectionTitle>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {directosPendientes.map((g,i)=>(
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"8px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)", borderLeft:`2px solid ${tarjeta.color}` }}>
+                <div>
+                  <div style={{ fontSize:11, fontFamily:"var(--font-sans)", fontWeight:600, color:"var(--text-primary)" }}>{g.descripcion}</div>
+                  <div style={{ fontSize:8, color:"var(--text-ghost)" }}>{g.fecha}</div>
                 </div>
-              ))}
-            </div>
-          </Card>
+                <span style={{ fontFamily:"var(--font-mono)", fontSize:12, color:tarjeta.color }}>S/. {fmt(g.monto)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
-          <CronogramaCard tarjetaId={tarjetaId} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos}/>
-        </div>
-      </div>
+      {/* Cuotas activas */}
+      {cuotas.length>0&&(
+        <Card>
+          <SectionTitle>Cuotas activas ({cuotas.length})</SectionTitle>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {cuotas.map((c,i)=>{
+              const pAuto  = calcPagadasAuto(c);
+              const totalC = parseInt(c.totalCuotas)||0;
+              const pct    = totalC>0?(pAuto/totalC)*100:0;
+              const liq    = pAuto>=totalC;
+              return (
+                <div key={i} className="fade-up" style={{ animationDelay:`${i*0.04}s` }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+                    <div>
+                      <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:"var(--text-primary)", marginBottom:2 }}>{c.desc}</div>
+                      <div style={{ display:"flex", gap:5 }}>
+                        <Badge color={liq?"var(--green)":"var(--blue)"}>{liq?"Liquidada":`Cuota ${pAuto}/${totalC}`}</Badge>
+                        {c.conInteres&&<Badge color="var(--red)">Con intereses</Badge>}
+                      </div>
+                    </div>
+                    <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:liq?"var(--green)":tarjeta.color }}>S/. {fmt(c.cuota)}/mes</span>
+                  </div>
+                  <ProgressBar pct={pct} color={liq?"var(--green)":tarjeta.color}/>
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:8, color:"var(--text-ghost)", marginTop:3 }}>
+                    <span>Total: S/. {fmt(c.montoTotal)}</span>
+                    <span>Primer pago: {MESES_LABEL[c.mesPrimerPago||1]} {c.anioPrimerPago||""}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
 
-export default function GestionTarjetas() {
-  const { state, dispatch } = useApp();
-  const [tab, setTab]     = useState("bcp");
-  const [vista, setVista] = useState("panel");
-  const tarjeta = tab === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
-  const cuotas  = state.tarjetas?.[tab]?.cuotasActivas || [];
-  const gastos  = state.gastos || [];
+// ── FormTarjeta ──────────────────────────────────────────────────────────────
+function FormTarjeta({ bancos, initial, onSave, onCancel }) {
+  const [form, setForm] = useState(initial || { bancoId:"bcp", nombre:"", color:"#38BDF8", lineaCredito:"", cierre:"", pagoDia:"" });
+  const [errors, setErrors] = useState({});
+  const sf = (k,v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
 
-  const cfgTarjeta = state.config?.[tab] || {};
-  const [form, setForm] = useState({});
-  const [saved, setSaved] = useState(false);
-  const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const openConfig = () => {
-    const t = TARJETAS[tab === "bcp" ? "BCP" : "AMEX"];
-    setForm({
-      lineaCredito: t.lineaCredito != null ? t.lineaCredito : "",
-      cierre:       t.cierre       != null ? t.cierre       : "",
-      pagoDia:      t.pagoDia      != null ? t.pagoDia      : "",
-      tea:          t.tea          != null ? t.tea          : "",
-      tcea:         t.tcea         != null ? t.tcea         : "",
-    });
-    setVista("config");
+  const validate = () => {
+    const e = {};
+    if (!form.nombre.trim())              e.nombre       = "Requerido";
+    if (!form.lineaCredito||parseFloat(form.lineaCredito)<=0) e.lineaCredito = "Requerido";
+    if (!form.cierre||parseInt(form.cierre)<1||parseInt(form.cierre)>31)   e.cierre   = "Día 1-31";
+    if (!form.pagoDia||parseInt(form.pagoDia)<1||parseInt(form.pagoDia)>31) e.pagoDia = "Día 1-31";
+    return e;
   };
 
-  const saveConfig = () => {
-    const payload = {
-      ...state.config,
-      [tab]: {
-        lineaCredito: parseFloat(form.lineaCredito) || 0,
-        cierre:       parseInt(form.cierre)         || 0,
-        pagoDia:      parseInt(form.pagoDia)        || 0,
-        tea:          parseFloat(form.tea)          || 0,
-        tcea:         parseFloat(form.tcea)         || 0,
-      },
-    };
-    // Update TARJETAS in memory immediately
-    const key = tab === "bcp" ? "BCP" : "AMEX";
-    Object.assign(TARJETAS[key], payload[tab]);
-    dispatch({ type: "SET_CONFIG", payload });
-    setSaved(true);
-    setTimeout(() => { setSaved(false); setVista("panel"); }, 1200);
+  const handleSave = () => {
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+    onSave({
+      bancoId:      form.bancoId,
+      nombre:       form.nombre.trim(),
+      color:        form.color,
+      lineaCredito: parseFloat(form.lineaCredito),
+      cierre:       parseInt(form.cierre),
+      pagoDia:      parseInt(form.pagoDia),
+    });
+  };
+
+  const COLORES = ["#38BDF8","#F59E0B","#10B981","#8B5CF6","#EC4899","#F97316","#6B7280"];
+
+  return (
+    <Card className="fade-up" style={{ borderColor:"var(--blue-border)" }}>
+      <SectionTitle color="var(--blue)">{initial?.id?"Editar tarjeta":"Nueva tarjeta"}</SectionTitle>
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        <Field label="Banco">
+          <select value={form.bancoId} onChange={e=>sf("bancoId",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
+            {bancos.map(b=><option key={b.id} value={b.id}>{b.label}</option>)}
+          </select>
+        </Field>
+        <Field label="Nombre personalizado" error={errors.nombre}>
+          <input placeholder="Ej: Visa Clásica BCP" value={form.nombre} onChange={e=>sf("nombre",e.target.value)}/>
+        </Field>
+        <Field label="Color">
+          <div style={{ display:"flex", gap:8 }}>
+            {COLORES.map(c=>(
+              <button key={c} onClick={()=>sf("color",c)} style={{ width:28, height:28, borderRadius:"50%", background:c, border:`3px solid ${form.color===c?"white":"transparent"}`, cursor:"pointer", outline:form.color===c?`2px solid ${c}`:"none", outlineOffset:2 }}/>
+            ))}
+          </div>
+        </Field>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+          <Field label="Línea de crédito (S/.)" error={errors.lineaCredito}>
+            <input type="number" placeholder="5000" value={form.lineaCredito} onChange={e=>sf("lineaCredito",e.target.value)}/>
+          </Field>
+          <Field label="Día de cierre" error={errors.cierre}>
+            <input type="number" min="1" max="31" placeholder="10" value={form.cierre} onChange={e=>sf("cierre",e.target.value)}/>
+          </Field>
+          <Field label="Día de pago" error={errors.pagoDia}>
+            <input type="number" min="1" max="31" placeholder="5" value={form.pagoDia} onChange={e=>sf("pagoDia",e.target.value)}/>
+          </Field>
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn variant="primary" size="full" onClick={handleSave}>{initial?.id?"Guardar cambios":"Agregar tarjeta"}</Btn>
+          <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+export default function Tarjetas() {
+  const { state, dispatch } = useApp();
+  const [tabId, setTabId]       = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editando, setEditando] = useState(null); // tarjeta a editar
+
+  const tarjetas = state.tarjetasCredito || [];
+  const bancos   = state.bancos || [];
+
+  // Auto-seleccionar primera tarjeta si no hay tab
+  const tarjetaActiva = tabId
+    ? tarjetas.find(t=>t.id===tabId) || tarjetas[0]
+    : tarjetas[0];
+
+  const cuotasTarjeta = tarjetaActiva ? (state.cuotas?.[tarjetaActiva.id]?.cuotasActivas || []) : [];
+
+  const totalCuotasTodas = tarjetas.reduce((s,t)=>{
+    const cuotas = state.cuotas?.[t.id]?.cuotasActivas||[];
+    return s+cuotas.reduce((ss,c)=>ss+(parseFloat(c.cuota)||0),0);
+  },0);
+  const totalLineaTodas = tarjetas.reduce((s,t)=>s+(t.lineaCredito||0),0);
+
+  const handleSaveTarjeta = async (data) => {
+    if (editando) {
+      dispatch({ type:"UPDATE_TARJETA", id:editando.id, payload:data });
+    } else {
+      dispatch({ type:"ADD_TARJETA", payload:{ id: Date.now().toString(36), ...data } });
+    }
+    setShowForm(false);
+    setEditando(null);
+  };
+
+  const handleDeleteTarjeta = (id) => {
+    if (confirm("¿Eliminar esta tarjeta? Se perderán sus cuotas asociadas.")) {
+      dispatch({ type:"DELETE_TARJETA", id });
+      if (tabId===id) setTabId(null);
+    }
   };
 
   return (
     <div>
-      <PageHeader title="Mis Tarjetas" accentColor={tarjeta.color}>
-        <div style={{ display:"flex", gap:8 }}>
-          <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3 }}>
-            {[{k:"bcp",t:"BCP Visa",c:TARJETAS.BCP.color},{k:"amex",t:"AMEX Interbank",c:TARJETAS.AMEX.color}].map(t=>(
-              <button key={t.k} onClick={()=>{ setTab(t.k); setVista("panel"); }} style={{
-                background:tab===t.k?"var(--bg-hover)":"transparent",
-                border:tab===t.k?`1px solid ${t.c}44`:"1px solid transparent",
-                borderRadius:"var(--radius-sm)", color:tab===t.k?t.c:"var(--text-muted)",
-                fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700,
-                padding:"6px 14px", cursor:"pointer", transition:"all .15s",
-              }}>{t.t}</button>
-            ))}
-          </div>
-          <button onClick={openConfig} style={{
-            background:"var(--bg-input)", border:"1px solid var(--border)",
-            borderRadius:"var(--radius-md)", color:"var(--text-muted)",
-            fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700,
-            padding:"6px 12px", cursor:"pointer",
-          }}>⚙ Configurar</button>
-        </div>
+      <PageHeader title="Tarjetas de Crédito" accentColor="var(--blue)">
+        <Btn variant="primary" onClick={()=>{ setShowForm(true); setEditando(null); }}>+ Nueva tarjeta</Btn>
       </PageHeader>
+
       <div className="page-container">
-        {vista === "config" ? (
-          <Card style={{ maxWidth:420 }}>
-            <SectionTitle color={tarjeta.color}>Configurar {tarjeta.nombre}</SectionTitle>
-            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-              {[
-                { k:"lineaCredito", l:"Línea de crédito (S/.)" },
-                { k:"cierre",       l:"Día de cierre del ciclo" },
-                { k:"pagoDia",      l:"Día límite de pago" },
-                { k:"tea",          l:"TEA (%)" },
-                { k:"tcea",         l:"TCEA (%)" },
-              ].map(f => (
-                <div key={f.k}>
-                  <div style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>{f.l}</div>
-                  <input type="number" value={form[f.k]||""} onChange={e=>sf(f.k, e.target.value)}
-                    style={{ width:"100%", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-primary)", fontFamily:"var(--font-mono)", fontSize:13, padding:"9px 12px", boxSizing:"border-box" }}/>
-                </div>
-              ))}
-              <div style={{ display:"flex", gap:8, marginTop:4 }}>
-                <button onClick={() => setVista("panel")} style={{ flex:1, padding:"10px 0", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancelar</button>
-                <button onClick={saveConfig} style={{ flex:2, padding:"10px 0", background:tarjeta.color+"22", border:`1px solid ${tarjeta.color}`, borderRadius:"var(--radius-md)", color:tarjeta.color, fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, cursor:"pointer" }}>
-                  {saved ? "✓ Guardado" : "Guardar"}
-                </button>
-              </div>
-            </div>
-          </Card>
+        {/* KPIs globales */}
+        <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
+          <KPICard label="Tarjetas activas"     value={`${tarjetas.length}`}              valueColor="var(--blue)"   delay={0}/>
+          <KPICard label="Línea total"           value={`S/. ${fmt(totalLineaTodas)}`}     valueColor="var(--text-primary)" delay={0.06}/>
+          <KPICard label="Cuotas activas"        value={`${Object.values(state.cuotas||{}).reduce((s,e)=>s+e.cuotasActivas.length,0)}`} sub="cuotas vigentes" delay={0.12}/>
+          <KPICard label="Compromiso mensual"    value={`S/. ${fmt(totalCuotasTodas)}`}    valueColor="var(--orange)" delay={0.18}/>
+        </div>
+
+        {/* Form nueva/editar tarjeta */}
+        {(showForm||editando) && (
+          <FormTarjeta
+            bancos={bancos}
+            initial={editando}
+            onSave={handleSaveTarjeta}
+            onCancel={()=>{ setShowForm(false); setEditando(null); }}
+          />
+        )}
+
+        {tarjetas.length===0 ? (
+          <div style={{ padding:"60px 20px", textAlign:"center", background:"var(--bg-card)", border:"1px dashed var(--border)", borderRadius:"var(--radius-lg)" }}>
+            <div style={{ fontSize:32, marginBottom:12, opacity:.3 }}>💳</div>
+            <div style={{ fontFamily:"var(--font-sans)", fontSize:14, fontWeight:700, color:"var(--text-secondary)", marginBottom:8 }}>Sin tarjetas registradas</div>
+            <div style={{ fontSize:11, color:"var(--text-ghost)", marginBottom:20 }}>Agrega tu primera tarjeta de crédito para comenzar a registrar tus compras y cuotas.</div>
+            <Btn variant="primary" onClick={()=>setShowForm(true)}>+ Agregar primera tarjeta</Btn>
+          </div>
         ) : (
-          <PanelTarjeta tarjetaId={tab} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos} onConfig={openConfig}/>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:18 }}>
+            {/* Tabs tarjetas */}
+            <div>
+              <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3, marginBottom:16, flexWrap:"wrap" }}>
+                {tarjetas.map(t=>(
+                  <button key={t.id} onClick={()=>setTabId(t.id)} style={{ flex:1, padding:"7px 12px", background:tarjetaActiva?.id===t.id?"var(--bg-hover)":"transparent", border:`1px solid ${tarjetaActiva?.id===t.id?t.color:"transparent"}`, borderRadius:"var(--radius-sm)", color:tarjetaActiva?.id===t.id?t.color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700, cursor:"pointer", transition:"all .15s", display:"flex", alignItems:"center", gap:6, whiteSpace:"nowrap" }}>
+                    <div style={{ width:8, height:8, borderRadius:"50%", background:t.color, flexShrink:0 }}/>
+                    {t.nombre}
+                  </button>
+                ))}
+              </div>
+
+              {tarjetaActiva&&(
+                <PanelTarjeta
+                  tarjeta={tarjetaActiva}
+                  cuotas={cuotasTarjeta}
+                  gastos={state.gastos}
+                  onEdit={()=>{ setEditando(tarjetaActiva); setShowForm(false); }}
+                  onDelete={()=>handleDeleteTarjeta(tarjetaActiva.id)}
+                />
+              )}
+            </div>
+
+            {/* Cronograma */}
+            <div>
+              {tarjetaActiva&&(
+                <CronogramaCard
+                  tarjeta={tarjetaActiva}
+                  cuotas={cuotasTarjeta}
+                  gastos={state.gastos}
+                />
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
