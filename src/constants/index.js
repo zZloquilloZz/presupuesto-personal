@@ -18,26 +18,23 @@ export const SUELDO = {
 };
 
 // ── TARJETAS DE CREDITO ──────────────────────────────
+// Solo datos estaticos (nombre, color, id).
+// Los datos financieros (lineaCredito, cierre, pagoDia, tea, tcea)
+// se guardan en Supabase tabla config y se cargan via AppContext.
 export const TARJETAS = {
   BCP: {
-    id:            "bcp",
-    nombre:        "BCP Visa",
-    color:         "#38BDF8",
-    lineaCredito:  5500,
-    cierre:        10,   // Dia de cierre del ciclo
-    pagoDia:       5,    // Dia limite de pago
-    tea:           39.99,
-    tcea:          46.97,
+    id:     "bcp",
+    nombre: "BCP Visa",
+    color:  "#38BDF8",
+    // Datos financieros se cargan desde Supabase — null hasta que el usuario configure
+    lineaCredito: null, cierre: null, pagoDia: null, tea: null, tcea: null,
   },
   AMEX: {
-    id:            "amex",
-    nombre:        "Interbank AMEX Gold",
-    color:         "#F59E0B",
-    lineaCredito:  1260,
-    cierre:        6,
-    pagoDia:       2,
-    tea:           29.99,
-    tcea:          34.97,
+    id:     "amex",
+    nombre: "Interbank AMEX Gold",
+    color:  "#F59E0B",
+    // Datos financieros se cargan desde Supabase — null hasta que el usuario configure
+    lineaCredito: null, cierre: null, pagoDia: null, tea: null, tcea: null,
   },
 };
 

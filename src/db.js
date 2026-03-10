@@ -279,17 +279,44 @@ export const db = {
         .maybeSingle();
       check(error);
       if (!data) return null;
-      return { haberBasico: data.haber_basico, diaDeposito: data.dia_deposito };
+      return {
+        haberBasico: data.haber_basico,
+        diaDeposito: data.dia_deposito,
+        bcp: data.bcp_cierre != null ? {
+          lineaCredito: data.bcp_linea_credito,
+          cierre:       data.bcp_cierre,
+          pagoDia:      data.bcp_pago_dia,
+          tea:          data.bcp_tea,
+          tcea:         data.bcp_tcea,
+        } : null,
+        amex: data.amex_cierre != null ? {
+          lineaCredito: data.amex_linea_credito,
+          cierre:       data.amex_cierre,
+          pagoDia:      data.amex_pago_dia,
+          tea:          data.amex_tea,
+          tcea:         data.amex_tcea,
+        } : null,
+      };
     },
 
     async save(userId, config) {
       const { error } = await supabase
         .from("config")
         .upsert({
-          user_id:      userId,
-          haber_basico: config.haberBasico,
-          dia_deposito: config.diaDeposito,
-          updated_at:   new Date().toISOString(),
+          user_id:           userId,
+          haber_basico:      config.haberBasico,
+          dia_deposito:      config.diaDeposito,
+          bcp_linea_credito: config.bcp?.lineaCredito,
+          bcp_cierre:        config.bcp?.cierre,
+          bcp_pago_dia:      config.bcp?.pagoDia,
+          bcp_tea:           config.bcp?.tea,
+          bcp_tcea:          config.bcp?.tcea,
+          amex_linea_credito:config.amex?.lineaCredito,
+          amex_cierre:       config.amex?.cierre,
+          amex_pago_dia:     config.amex?.pagoDia,
+          amex_tea:          config.amex?.tea,
+          amex_tcea:         config.amex?.tcea,
+          updated_at:        new Date().toISOString(),
         }, { onConflict: "user_id" });
       check(error);
     },

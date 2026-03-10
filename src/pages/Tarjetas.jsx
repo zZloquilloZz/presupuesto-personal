@@ -143,7 +143,24 @@ const CRONOGRAMA_BCP = [
 ];
 const MES_ACTUAL = new Date().getMonth();
 
-function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
+function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos, onConfig }) {
+  // Si la tarjeta no esta configurada, mostrar prompt
+  if (tarjeta.cierre == null) {
+    return (
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"60px 20px", gap:16 }}>
+        <div style={{ fontSize:32, opacity:.3 }}>💳</div>
+        <div style={{ fontFamily:"var(--font-sans)", fontSize:14, fontWeight:700, color:"var(--text-secondary)" }}>Tarjeta sin configurar</div>
+        <div style={{ fontFamily:"var(--font-sans)", fontSize:11, color:"var(--text-ghost)", textAlign:"center", maxWidth:280 }}>
+          Ingresa los datos de tu tarjeta (línea de crédito, fechas de cierre y pago) para ver tu resumen.
+        </div>
+        <button onClick={onConfig} style={{
+          background:"var(--blue-bg)", border:"1px solid var(--blue)", borderRadius:"var(--radius-md)",
+          color:"var(--blue)", fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700,
+          padding:"10px 20px", cursor:"pointer",
+        }}>⚙ Configurar ahora</button>
+      </div>
+    );
+  }
   const hoyT2        = new Date();
   const mesActualT2  = hoyT2.getMonth() + 1;
   const anioActualT2 = hoyT2.getFullYear();
@@ -326,29 +343,101 @@ function PanelTarjeta({ tarjetaId, tarjeta, cuotas, gastos }) {
 }
 
 export default function GestionTarjetas() {
-  const { state } = useApp();
-  const [tab, setTab] = useState("bcp");
+  const { state, dispatch } = useApp();
+  const [tab, setTab]     = useState("bcp");
+  const [vista, setVista] = useState("panel");
   const tarjeta = tab === "bcp" ? TARJETAS.BCP : TARJETAS.AMEX;
   const cuotas  = state.tarjetas?.[tab]?.cuotasActivas || [];
   const gastos  = state.gastos || [];
 
+  const cfgTarjeta = state.config?.[tab] || {};
+  const [form, setForm] = useState({});
+  const [saved, setSaved] = useState(false);
+  const sf = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const openConfig = () => {
+    const t = TARJETAS[tab === "bcp" ? "BCP" : "AMEX"];
+    setForm({
+      lineaCredito: t.lineaCredito != null ? t.lineaCredito : "",
+      cierre:       t.cierre       != null ? t.cierre       : "",
+      pagoDia:      t.pagoDia      != null ? t.pagoDia      : "",
+      tea:          t.tea          != null ? t.tea          : "",
+      tcea:         t.tcea         != null ? t.tcea         : "",
+    });
+    setVista("config");
+  };
+
+  const saveConfig = () => {
+    const payload = {
+      ...state.config,
+      [tab]: {
+        lineaCredito: parseFloat(form.lineaCredito) || 0,
+        cierre:       parseInt(form.cierre)         || 0,
+        pagoDia:      parseInt(form.pagoDia)        || 0,
+        tea:          parseFloat(form.tea)          || 0,
+        tcea:         parseFloat(form.tcea)         || 0,
+      },
+    };
+    // Update TARJETAS in memory immediately
+    const key = tab === "bcp" ? "BCP" : "AMEX";
+    Object.assign(TARJETAS[key], payload[tab]);
+    dispatch({ type: "SET_CONFIG", payload });
+    setSaved(true);
+    setTimeout(() => { setSaved(false); setVista("panel"); }, 1200);
+  };
+
   return (
     <div>
       <PageHeader title="Mis Tarjetas" accentColor={tarjeta.color}>
-        <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3 }}>
-          {[{k:"bcp",t:"BCP Visa",c:TARJETAS.BCP.color},{k:"amex",t:"AMEX Interbank",c:TARJETAS.AMEX.color}].map(t=>(
-            <button key={t.k} onClick={()=>setTab(t.k)} style={{
-              background:tab===t.k?"var(--bg-hover)":"transparent",
-              border:tab===t.k?`1px solid ${t.c}44`:"1px solid transparent",
-              borderRadius:"var(--radius-sm)", color:tab===t.k?t.c:"var(--text-muted)",
-              fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700,
-              padding:"6px 14px", cursor:"pointer", transition:"all .15s",
-            }}>{t.t}</button>
-          ))}
+        <div style={{ display:"flex", gap:8 }}>
+          <div style={{ display:"flex", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", padding:3, gap:3 }}>
+            {[{k:"bcp",t:"BCP Visa",c:TARJETAS.BCP.color},{k:"amex",t:"AMEX Interbank",c:TARJETAS.AMEX.color}].map(t=>(
+              <button key={t.k} onClick={()=>{ setTab(t.k); setVista("panel"); }} style={{
+                background:tab===t.k?"var(--bg-hover)":"transparent",
+                border:tab===t.k?`1px solid ${t.c}44`:"1px solid transparent",
+                borderRadius:"var(--radius-sm)", color:tab===t.k?t.c:"var(--text-muted)",
+                fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700,
+                padding:"6px 14px", cursor:"pointer", transition:"all .15s",
+              }}>{t.t}</button>
+            ))}
+          </div>
+          <button onClick={openConfig} style={{
+            background:"var(--bg-input)", border:"1px solid var(--border)",
+            borderRadius:"var(--radius-md)", color:"var(--text-muted)",
+            fontFamily:"var(--font-sans)", fontSize:10, fontWeight:700,
+            padding:"6px 12px", cursor:"pointer",
+          }}>⚙ Configurar</button>
         </div>
       </PageHeader>
       <div className="page-container">
-        <PanelTarjeta tarjetaId={tab} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos}/>
+        {vista === "config" ? (
+          <Card style={{ maxWidth:420 }}>
+            <SectionTitle color={tarjeta.color}>Configurar {tarjeta.nombre}</SectionTitle>
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {[
+                { k:"lineaCredito", l:"Línea de crédito (S/.)" },
+                { k:"cierre",       l:"Día de cierre del ciclo" },
+                { k:"pagoDia",      l:"Día límite de pago" },
+                { k:"tea",          l:"TEA (%)" },
+                { k:"tcea",         l:"TCEA (%)" },
+              ].map(f => (
+                <div key={f.k}>
+                  <div style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>{f.l}</div>
+                  <input type="number" value={form[f.k]||""} onChange={e=>sf(f.k, e.target.value)}
+                    style={{ width:"100%", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-sm)", color:"var(--text-primary)", fontFamily:"var(--font-mono)", fontSize:13, padding:"9px 12px", boxSizing:"border-box" }}/>
+                </div>
+              ))}
+              <div style={{ display:"flex", gap:8, marginTop:4 }}>
+                <button onClick={() => setVista("panel")} style={{ flex:1, padding:"10px 0", background:"var(--bg-input)", border:"1px solid var(--border)", borderRadius:"var(--radius-md)", color:"var(--text-muted)", fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, cursor:"pointer" }}>Cancelar</button>
+                <button onClick={saveConfig} style={{ flex:2, padding:"10px 0", background:tarjeta.color+"22", border:`1px solid ${tarjeta.color}`, borderRadius:"var(--radius-md)", color:tarjeta.color, fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+                  {saved ? "✓ Guardado" : "Guardar"}
+                </button>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <PanelTarjeta tarjetaId={tab} tarjeta={tarjeta} cuotas={cuotas} gastos={gastos} onConfig={openConfig}/>
+        )}
       </div>
     </div>
   );

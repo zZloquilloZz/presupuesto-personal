@@ -107,7 +107,7 @@ function reducer(state, action) {
     }
 
     case "SET_CONFIG":
-      return { ...state, config: { ...state.config, ...action.payload } };
+      return { ...state, config: { ...state.config, ...action.payload, bcp: { ...state.config?.bcp, ...action.payload?.bcp }, amex: { ...state.config?.amex, ...action.payload?.amex } } };
 
     default:
       return state;
@@ -133,6 +133,22 @@ export function AppProvider({ children }) {
       db.deudas.getAll(user.id),
       db.config.get(user.id),
     ]).then(([gastos, gastosFijos, gastosRecurrentes, historialIngresos, presupuestos, tarjetas, deudas, config]) => {
+      // Mezclar datos financieros de config con TARJETAS
+      const configFinal = config || INITIAL_STATE.config;
+      if (configFinal.bcp) {
+        TARJETAS.BCP.lineaCredito = configFinal.bcp.lineaCredito;
+        TARJETAS.BCP.cierre       = configFinal.bcp.cierre;
+        TARJETAS.BCP.pagoDia      = configFinal.bcp.pagoDia;
+        TARJETAS.BCP.tea          = configFinal.bcp.tea;
+        TARJETAS.BCP.tcea         = configFinal.bcp.tcea;
+      }
+      if (configFinal.amex) {
+        TARJETAS.AMEX.lineaCredito = configFinal.amex.lineaCredito;
+        TARJETAS.AMEX.cierre       = configFinal.amex.cierre;
+        TARJETAS.AMEX.pagoDia      = configFinal.amex.pagoDia;
+        TARJETAS.AMEX.tea          = configFinal.amex.tea;
+        TARJETAS.AMEX.tcea         = configFinal.amex.tcea;
+      }
       localDispatch({
         type: "HYDRATE",
         payload: {
@@ -143,7 +159,7 @@ export function AppProvider({ children }) {
           presupuestos: { ...INITIAL_STATE.presupuestos, ...presupuestos },
           tarjetas,
           deudas,
-          config: config || INITIAL_STATE.config,
+          config: configFinal,
         },
       });
 
@@ -315,9 +331,15 @@ export function AppProvider({ children }) {
           break;
         }
 
-        case "SET_CONFIG":
-          await db.config.save(user.id, { ...state.config, ...action.payload });
+        case "SET_CONFIG": {
+          const newCfg = { ...state.config, ...action.payload };
+          await db.config.save(user.id, newCfg);
+          // Update TARJETAS in memory
+          if (newCfg.bcp)  Object.assign(TARJETAS.BCP,  newCfg.bcp);
+          if (newCfg.amex) Object.assign(TARJETAS.AMEX, newCfg.amex);
+          localDispatch({ type: "SET_CONFIG", payload: newCfg });
           break;
+        }
       }
     } catch (err) {
       console.error("Error sincronizando con Supabase:", err);
