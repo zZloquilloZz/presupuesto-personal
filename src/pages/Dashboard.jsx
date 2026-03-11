@@ -71,7 +71,7 @@ export default function Dashboard() {
       const mIdx   = fecha.getMonth();
       const anio   = fecha.getFullYear();
       const gasts  = state.gastos.filter(g => {
-        const d = new Date(g.fecha);
+        const d = new Date(g.fecha + "T00:00:00");
         return d.getMonth() === mIdx && d.getFullYear() === anio;
       });
       const mesIngrIdx = mIdx === 0 ? 11 : mIdx - 1;

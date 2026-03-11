@@ -18,9 +18,9 @@ export const SUELDO = {
 
 // ── EMAILJS ──────────────────────────────────────────
 export const EMAILJS = {
-  SERVICE_ID:  "service_4gu8pjb",
-  TEMPLATE_ID: "template_tinan0o",
-  PUBLIC_KEY:  "RuW3rufBECJykKP-F",
+  SERVICE_ID:  import.meta.env.VITE_EMAILJS_SERVICE_ID,
+  TEMPLATE_ID: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+  PUBLIC_KEY:  import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
   SCRIPT_URL:  "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js",
 };
 

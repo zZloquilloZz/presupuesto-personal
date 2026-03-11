@@ -15,8 +15,9 @@ export function fmt(v, decimals = 2) {
 export function diasPara(dia) {
   if (!dia) return null;
   const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0); // normalizar a inicio del día para comparación exacta
   const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), parseInt(dia));
-  if (fecha <= hoy) fecha.setMonth(fecha.getMonth() + 1);
+  if (fecha < hoy) fecha.setMonth(fecha.getMonth() + 1);
   return Math.ceil((fecha - hoy) / 86400000);
 }
 

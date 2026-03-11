@@ -11,7 +11,7 @@ import Presupuesto from "./pages/Presupuesto";
 import Tarjetas    from "./pages/Tarjetas";
 import Ingresos    from "./pages/Ingresos";
 import Deudas      from "./pages/Deudas";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PAGES = {
   dashboard:   Dashboard,
@@ -31,8 +31,15 @@ function LoadingScreen({ text = "Cargando..." }) {
 }
 
 function AppShellInner({ logout, userEmail }) {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const [page, setPage] = useState("dashboard");
+
+  // Auto-limpiar el mensaje de error después de 4 segundos
+  useEffect(() => {
+    if (!state.errorMsg) return;
+    const t = setTimeout(() => dispatch({ type: "CLEAR_ERROR" }), 4000);
+    return () => clearTimeout(t);
+  }, [state.errorMsg]);
 
   if (state.loading) return <LoadingScreen text="Cargando datos..." />;
 
@@ -43,6 +50,23 @@ function AppShellInner({ logout, userEmail }) {
       <main style={{ marginLeft: 215, flex: 1, minHeight: "100vh", overflowY: "auto" }}>
         <PageComponent />
       </main>
+      {state.errorMsg && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "var(--red-bg)", border: "1px solid var(--red)",
+          borderRadius: "var(--radius-md)", padding: "12px 20px",
+          display: "flex", alignItems: "center", gap: 12,
+          fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--red)",
+          boxShadow: "0 4px 24px #0006", zIndex: 9999, maxWidth: 420,
+        }}>
+          <span style={{ fontWeight: 700 }}>⚠</span>
+          <span style={{ flex: 1 }}>{state.errorMsg}</span>
+          <button onClick={() => dispatch({ type: "CLEAR_ERROR" })} style={{
+            background: "none", border: "none", color: "var(--red)",
+            cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1,
+          }}>✕</button>
+        </div>
+      )}
     </div>
   );
 }

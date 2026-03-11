@@ -103,7 +103,7 @@ export const db = {
     async update(id, g) {
       const { data, error } = await supabase
         .from("gastos")
-        .update({ tarjeta_id: g.tarjetaId || null, categoria_id: g.categoriaId, metodo_id: g.metodoId, descripcion: g.descripcion, monto: g.monto, fecha: g.fecha, notas: g.notas || null })
+        .update({ tarjeta_id: g.tarjetaId || null, categoria_id: g.categoriaId, metodo_id: g.metodoId, descripcion: g.descripcion, monto: g.monto, fecha: g.fecha, notas: g.notas || null, updated_at: new Date().toISOString() })
         .eq("id", id)
         .select("*, categorias(label,color,emoji), metodos_pago(label), tarjetas_credito(nombre,color)").single();
       check(error);
@@ -248,7 +248,8 @@ export const db = {
     },
 
     async delete(id) {
-      const { error } = await supabase.from("gastos_recurrentes").delete().eq("id", id);
+      const { error } = await supabase.from("gastos_recurrentes")
+        .update({ activo: false }).eq("id", id);
       check(error);
     },
   },

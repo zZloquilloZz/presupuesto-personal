@@ -237,6 +237,7 @@ export default function Registro() {
       dispatch({ type:"ADD_CUOTA_COMPRA", payload:{
         tarjetaId: tarjetaActiva.id,
         gasto:{
+          id:          uid(),
           tarjetaId:   tarjetaActiva.id,
           categoriaId: form.categoriaId,
           metodoId:    "credito",
@@ -247,7 +248,7 @@ export default function Registro() {
           notas:       `Cuota 1/${n}${form.conInteres?" con intereses":" sin intereses"}. Total: S/. ${fmt(montoTotal)}`,
         },
         cuota:{
-          id:            Date.now().toString(36),
+          id:            uid(),
           desc:          form.descripcion,
           montoTotal,
           cuota:         cuotaMes,

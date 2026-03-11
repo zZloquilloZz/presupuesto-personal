@@ -9,6 +9,7 @@ import { SUELDO } from "../constants";
 // ── Estado inicial ──────────────────────────────────────────
 const INITIAL_STATE = {
   loading:           true,
+  errorMsg:          null,
   categorias:        [],
   metodos:           [],
   bancos:            [],
@@ -36,6 +37,11 @@ function reducer(state, action) {
 
     case "SET_LOADING":
       return { ...state, loading: action.value };
+
+    case "SET_ERROR":
+      return { ...state, errorMsg: action.msg };
+    case "CLEAR_ERROR":
+      return { ...state, errorMsg: null };
 
     // Tarjetas
     case "ADD_TARJETA":
@@ -133,6 +139,22 @@ function reducer(state, action) {
         cuotas:            action.payload.cuotas,
         gastosRecurrentes: action.payload.gastosRecurrentes,
       };
+
+    // Revertir compra a cuotas si falló la persistencia en BD
+    case "ROLLBACK_CUOTA_COMPRA": {
+      const cuotasEntry = state.cuotas[action.tarjetaId];
+      return {
+        ...state,
+        gastos: state.gastos.filter(g => g.id !== action.gastoId),
+        cuotas: cuotasEntry ? {
+          ...state.cuotas,
+          [action.tarjetaId]: {
+            ...cuotasEntry,
+            cuotasActivas: cuotasEntry.cuotasActivas.filter(c => c.id !== action.cuotaId),
+          },
+        } : state.cuotas,
+      };
+    }
 
     case "SET_CONFIG":
       return { ...state, config: { ...state.config, ...action.payload } };
@@ -337,6 +359,35 @@ export function AppProvider({ children }) {
       }
     } catch (err) {
       console.error(`[dispatch ${action.type}]:`, err.message || err);
+      localDispatch({ type: "SET_ERROR", msg: "Error al guardar. Intenta de nuevo." });
+      // Revertir actualización optimista según el tipo de acción
+      switch (action.type) {
+        case "ADD_GASTO":
+          localDispatch({ type: "DELETE_GASTO", id: action.payload.id });
+          break;
+        case "ADD_GASTO_FIJO":
+          localDispatch({ type: "DELETE_GASTO_FIJO", id: action.payload.id });
+          break;
+        case "ADD_RECURRENTE":
+          localDispatch({ type: "DELETE_RECURRENTE", id: action.payload.id });
+          break;
+        case "ADD_DEUDA":
+          localDispatch({ type: "DELETE_DEUDA", id: action.payload.id });
+          break;
+        case "ADD_TARJETA":
+          localDispatch({ type: "DELETE_TARJETA", id: action.payload.id });
+          break;
+        case "ADD_CUOTA_COMPRA":
+          localDispatch({
+            type: "ROLLBACK_CUOTA_COMPRA",
+            gastoId:   action.payload.gasto.id,
+            cuotaId:   action.payload.cuota.id,
+            tarjetaId: action.payload.tarjetaId,
+          });
+          break;
+        default:
+          break;
+      }
     }
   };
 
@@ -355,13 +406,14 @@ async function aplicarRecurrentesPendientes(userId, recurrentes, gastos, localDi
   const fecha  = ahora.toISOString().slice(0, 10);
 
   // Deduplicar por descripcion+mesKey: si ya existe un gasto con esa descripcion este mes, no aplica
+  // Se normaliza a minúsculas y sin espacios extremos para evitar falsos negativos por mayúsculas o espacios
   const yaEste = new Set(
     gastos
       .filter(g => g.fecha?.slice(0, 7) === mesKey)
-      .map(g => g.descripcion)
+      .map(g => g.descripcion?.toLowerCase().trim())
   );
 
-  const pendientes = recurrentes.filter(r => !yaEste.has(r.descripcion));
+  const pendientes = recurrentes.filter(r => !yaEste.has(r.descripcion?.toLowerCase().trim()));
   if (!pendientes.length) return;
 
   try {
