@@ -4,7 +4,7 @@
 // El cliente intercambia ese code por una sesión válida, luego cierra sesión
 // para que el usuario haga login manualmente.
 
-import { createContext, useContext, useEffect, useState, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
 const AuthContext = createContext(null);
@@ -23,54 +23,51 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [emailConfirmed, setEmailConfirmed] = useState(false);
 
-  // Flag para bloquear onAuthStateChange durante confirmación de email
-  const confirmingRef = useRef(false);
-
   useEffect(() => {
+    let subscription = null;
+
+    function setupListener() {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        setUser(session?.user ?? null);
+      });
+      subscription = data.subscription;
+    }
+
     async function initAuth() {
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
 
       if (code) {
-        // Activar flag ANTES de exchangeCode para bloquear el listener
-        confirmingRef.current = true;
-
+        limpiarUrlAuth();
         try {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
-            // Email confirmado — cerrar sesión inmediatamente
             await supabase.auth.signOut();
             setEmailConfirmed(true);
-            setUser(null);
-            setLoading(false);
-            limpiarUrlAuth();
-            confirmingRef.current = false;
-            return;
+          } else {
+            console.error("Error al intercambiar code:", error.message);
           }
-          console.error("Error al intercambiar code:", error.message);
         } catch (e) {
           console.error("Error PKCE:", e);
         }
-
-        confirmingRef.current = false;
-        limpiarUrlAuth();
+        // Registrar listener DESPUÉS de que el flujo de confirmación terminó
+        // para evitar que eventos intermedios (SIGNED_IN) pongan user != null
+        setUser(null);
+        setLoading(false);
+        setupListener();
+        return;
       }
 
       // Flujo normal: obtener sesión existente
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setLoading(false);
+      setupListener();
     }
 
     initAuth();
 
-    // Escuchar cambios de sesión — IGNORA eventos durante confirmación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (confirmingRef.current) return; // ← bloquea durante confirmación
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => subscription?.unsubscribe();
   }, []);
 
   const login = async (email, password) => {
