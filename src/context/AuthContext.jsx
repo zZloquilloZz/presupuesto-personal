@@ -46,7 +46,13 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: "https://zzloquillozz.github.io/presupuesto-personal/",
+      },
+    });
     if (error) throw error;
     return data;
   };

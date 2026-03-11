@@ -105,7 +105,7 @@ export default function Login() {
               onChange={e => { setEmail(e.target.value); setError(null); }}
               onKeyDown={e => e.key === "Enter" && submit()}
               style={{ width:"100%", boxSizing:"border-box" }}
-              autoComplete="email"
+              autoComplete="off"
             />
           </div>
           <div>
@@ -117,7 +117,7 @@ export default function Login() {
               onChange={e => { setPassword(e.target.value); setError(null); }}
               onKeyDown={e => e.key === "Enter" && submit()}
               style={{ width:"100%", boxSizing:"border-box" }}
-              autoComplete={modo === "login" ? "current-password" : "new-password"}
+              autoComplete="off"
             />
           </div>
 
