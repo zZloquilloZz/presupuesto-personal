@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Presupuesto Personal</title>
+    <script>
+      // GitHub Pages SPA fix: redirige cualquier 404 al index.html
+      // preservando el hash (donde Supabase pone el access_token)
+      var basePath = '/presupuesto-personal/';
+      var l = window.location;
+
+      // Si la URL tiene un hash con access_token (email confirmation),
+      // redirigir al index.html con el hash intacto
+      if (l.hash && l.hash.indexOf('access_token') !== -1) {
+        l.replace(l.protocol + '//' + l.host + basePath + l.hash);
+      } else {
+        // Para cualquier otra ruta 404, redirigir a la base
+        l.replace(l.protocol + '//' + l.host + basePath);
+      }
+    </script>
+  </head>
+  <body>
+    <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0A0C10;color:#475569;font-family:monospace;font-size:13px;">
+      Redirigiendo...
+    </div>
+  </body>
+</html>
