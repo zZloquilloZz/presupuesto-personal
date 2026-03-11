@@ -6,7 +6,7 @@ const NAV_ITEMS = [
   { id:"dashboard",   label:"Dashboard",   sub:"Resumen del mes",     icon:"DSH", color:"var(--blue)"   },
   { id:"registro",    label:"Registro",    sub:"Gastos y movimientos", icon:"REG", color:"var(--green)"  },
   { id:"presupuesto", label:"Presupuesto", sub:"vs Real",              icon:"PRE", color:"var(--yellow)" },
-  { id:"tarjetas",    label:"Tarjetas",    sub:"BCP y AMEX",           icon:"TRJ", color:"var(--pink)"   },
+  { id:"tarjetas",    label:"Tarjetas",    sub:"Crédito y cuotas",           icon:"TRJ", color:"var(--pink)"   },
   { id:"ingresos",    label:"Ingresos",    sub:"Sueldo y extras",      icon:"ING", color:"var(--lime)"   },
   { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"#F87171"    },
 ];

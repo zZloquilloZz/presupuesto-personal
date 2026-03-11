@@ -281,7 +281,7 @@ export default function Registro() {
         notas:       form.notas || null,
       }});
       if (form.recurrente) {
-        dispatch({ type:"ADD_RECURRENTE", payload:{
+        dispatch({ type:"ADD_RECURRENTE", payload:{ id: uid(),
           tarjetaId:   form.tarjetaId || null,
           categoriaId: form.categoriaId,
           metodoId:    form.metodoId,

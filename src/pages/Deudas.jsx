@@ -53,7 +53,13 @@ export default function Deudas() {
   };
 
   const registrarPago = (deudaId) => {
-    dispatch({ type:"ADD_PAGO_DEUDA", deudaId });
+    const deuda = deudas.find(d => d.id === deudaId);
+    if (!deuda) return;
+    dispatch({
+      type:                "ADD_PAGO_DEUDA",
+      deudaId,
+      newPagosRealizados:  (deuda.pagosRealizados || 0) + 1,
+    });
   };
 
   // KPIs

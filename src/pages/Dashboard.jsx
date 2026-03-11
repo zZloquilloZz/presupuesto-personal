@@ -6,13 +6,12 @@ import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
 import { CATEGORIAS_FALLBACK, EMAILJS, MESES } from "../constants";
-import { fmt, diasPara, periodoActual, agruparPorCategoria } from "../utils";
-import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader, Badge, EmptyState } from "../components/UI";
+import { fmt, diasPara, agruparPorCategoria } from "../utils";
+import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader } from "../components/UI";
 
 // Alertas: se construyen desde state.gastosFijos dinámicamente
 
 export default function Dashboard() {
-  const [vista, setVista]           = useState("periodo");
   const [showAlerts, setShowAlerts] = useState(false);
   const [emailStatus, setEmailStatus] = useState(null);
   const [ejsReady, setEjsReady]     = useState(false);
@@ -21,7 +20,6 @@ export default function Dashboard() {
   const { state, dispatch } = useApp();
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
-  const periodo   = periodoActual();
 
   // Carga EmailJS una sola vez al montar
   useEffect(() => {
@@ -40,17 +38,13 @@ export default function Dashboard() {
   const totalAlertaMonto = alertas.reduce((s,a) => s + a.monto, 0);
 
   // ── Calculos del mes ──────────────────────────────
-  const gastosDirectos = gastosMes;
+  // Todos los gastos del mes
   const totalGastos  = gastosMes.reduce((s,g) => s + g.monto, 0);
   const totalDeudas  = (state.deudas||[]).filter(d => d.cuotaMensual > 0).reduce((s,d) => s + (parseFloat(d.cuotaMensual)||0), 0);
   const totalFijosSolo = state.gastosFijos.reduce((s,f) => s + (parseFloat(f.monto)||0), 0);
   const totalFijos   = totalFijosSolo + totalDeudas;
 
-  // Todos los gastos del mes (directos + recurrentes aplicados este mes)
-  // gastosMes ya contiene los recurrentes que se auto-aplicaron con fecha de este mes
-  const gastosParaGrafico = gastosMes;
-
-  // Metodo de pago: todos los gastos reales del mes
+  // Método de pago: todos los gastos reales del mes
   const totalCredito  = gastosMes.filter(g => g.metodoId === "credito").reduce((s,g) => s + g.monto, 0);
   const totalDebito   = gastosMes.filter(g => g.metodoId !== "credito").reduce((s,g) => s + g.monto, 0);
   // Ingreso disponible = mes anterior (ya depositado)
@@ -63,18 +57,9 @@ export default function Dashboard() {
   const mesRef = hoyRef.getMonth() === 0 ? 11 : hoyRef.getMonth() - 1;
   const hayGastos    = gastosMes.length > 0;
 
-  // Grafico de torta
-  // Para el pie: gastos del mes actual + gastos del mes siguiente (cuotas de tarjeta ya registradas)
-  const hoyPie = new Date();
-  const mesSigIdx = (hoyPie.getMonth() + 1) % 12;
-  const anioSig   = hoyPie.getMonth() === 11 ? hoyPie.getFullYear() + 1 : hoyPie.getFullYear();
-  const gastosMesSig = state.gastos.filter(g => {
-    const d = new Date(g.fecha);
-    return d.getMonth() === mesSigIdx && d.getFullYear() === anioSig;
-  });
-  const gastosVista = [...gastosMes, ...gastosMesSig];
+  // Grafico de torta — solo gastos del mes actual
   const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
-  const pieData = agruparPorCategoria(gastosVista.length > 0 ? gastosVista : gastosMes, categorias);
+  const pieData = agruparPorCategoria(gastosMes, categorias);
   const catTop  = [...pieData].sort((a,b) => b.total - a.total)[0];
 
   // Historial de 7 meses (4 anteriores + actual + 2 siguientes si hay datos)
