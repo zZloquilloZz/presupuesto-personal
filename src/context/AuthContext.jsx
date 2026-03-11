@@ -1,38 +1,68 @@
-// AuthContext.jsx — maneja sesión de usuario con Supabase Auth
+// AuthContext.jsx — maneja sesión de usuario con Supabase Auth (PKCE flow)
 // Provee: user, loading, login(), register(), logout()
-// Detecta token de confirmación de email en la URL (GitHub Pages + Supabase)
+// PKCE: después de confirmar email, Supabase redirige con ?code=xxx
+// El cliente intercambia ese code por una sesión válida.
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../supabase";
 
 const AuthContext = createContext(null);
 
-/** Limpia el hash de la URL si contiene tokens de auth */
-function limpiarHashAuth() {
-  if (window.location.hash && window.location.hash.includes("access_token")) {
-    window.history.replaceState(null, "", window.location.pathname);
+/** Limpia params de auth de la URL (?code=, #access_token=) */
+function limpiarUrlAuth() {
+  const url = new URL(window.location.href);
+  let changed = false;
+
+  // PKCE: ?code= en query params
+  if (url.searchParams.has("code")) {
+    url.searchParams.delete("code");
+    changed = true;
+  }
+
+  // Legacy: #access_token= en hash (por si acaso)
+  if (url.hash && url.hash.includes("access_token")) {
+    url.hash = "";
+    changed = true;
+  }
+
+  if (changed) {
+    window.history.replaceState(null, "", url.pathname);
   }
 }
 
 export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
-  const [loading, setLoading] = useState(true); // true mientras verifica sesión
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Supabase JS v2 detecta automáticamente el access_token en el hash
-    // al llamar getSession(). Solo necesitamos asegurar que se ejecute
-    // y después limpiar la URL.
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    async function initAuth() {
+      // PKCE: si hay ?code= en la URL, intercambiar por sesión
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+
+      if (code) {
+        try {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) console.error("Error al intercambiar code:", error.message);
+        } catch (e) {
+          console.error("Error PKCE:", e);
+        }
+      }
+
+      // Obtener sesión (ya sea existente o recién creada por PKCE)
+      const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session) limpiarHashAuth();
-    });
+      limpiarUrlAuth();
+    }
+
+    initAuth();
 
     // Escuchar cambios de sesión (login, logout, token refresh, email confirm)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        limpiarHashAuth();
+        limpiarUrlAuth();
       }
     });
 
