@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
-  const { login, register } = useAuth();
+  const { login, register, emailConfirmed, setEmailConfirmed } = useAuth();
 
   const [modo,     setModo]     = useState("login");  // "login" | "register"
   const [email,    setEmail]    = useState("");
@@ -94,6 +94,19 @@ export default function Login() {
           ))}
         </div>
 
+        {/* Banner de confirmación exitosa */}
+        {emailConfirmed && (
+          <div style={{ background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:"var(--radius-sm)", padding:"10px 14px", marginBottom:8, textAlign:"center" }}>
+            <div style={{ fontSize:14, marginBottom:4 }}>✅</div>
+            <div style={{ fontSize:11, color:"#22C55E", fontFamily:"var(--font-sans)", fontWeight:700 }}>
+              Email confirmado correctamente
+            </div>
+            <div style={{ fontSize:10, color:"var(--text-dim)", marginTop:4 }}>
+              Ahora inicia sesión con tu email y contraseña
+            </div>
+          </div>
+        )}
+
         {/* Campos */}
         <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
@@ -102,7 +115,7 @@ export default function Login() {
               type="email"
               placeholder="tu@email.com"
               value={email}
-              onChange={e => { setEmail(e.target.value); setError(null); }}
+              onChange={e => { setEmail(e.target.value); setError(null); if (emailConfirmed) setEmailConfirmed(false); }}
               onKeyDown={e => e.key === "Enter" && submit()}
               style={{ width:"100%", boxSizing:"border-box" }}
               autoComplete="off"

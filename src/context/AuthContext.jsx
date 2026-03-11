@@ -34,26 +34,38 @@ export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
+
   useEffect(() => {
     async function initAuth() {
-      // PKCE: si hay ?code= en la URL, intercambiar por sesión
+      // PKCE: si hay ?code= en la URL, intercambiar por sesión (confirma el email)
       const params = new URLSearchParams(window.location.search);
       const code = params.get("code");
 
       if (code) {
         try {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) console.error("Error al intercambiar code:", error.message);
+          if (error) {
+            console.error("Error al intercambiar code:", error.message);
+          } else {
+            // Email confirmado exitosamente — cerrar sesión para que
+            // el usuario ingrese manualmente (confirmación ≠ login)
+            await supabase.auth.signOut();
+            setEmailConfirmed(true);
+            setLoading(false);
+            limpiarUrlAuth();
+            return;
+          }
         } catch (e) {
           console.error("Error PKCE:", e);
         }
+        limpiarUrlAuth();
       }
 
-      // Obtener sesión (ya sea existente o recién creada por PKCE)
+      // Flujo normal: obtener sesión existente
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user ?? null);
       setLoading(false);
-      limpiarUrlAuth();
     }
 
     initAuth();
@@ -92,7 +104,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, emailConfirmed, setEmailConfirmed }}>
       {children}
     </AuthContext.Provider>
   );
