@@ -57,7 +57,7 @@ export default function Login() {
           <div style={{ fontSize:10, color:"var(--text-ghost)", marginBottom:20 }}>
             Después de confirmar, vuelve aquí e inicia sesión.
           </div>
-          <button onClick={() => { setOk(false); setModo("login"); }} style={styles.btn}>
+          <button onClick={() => { setOk(false); setModo("login"); setEmail(""); setPassword(""); }} style={styles.btn}>
             Ir al login
           </button>
         </div>
