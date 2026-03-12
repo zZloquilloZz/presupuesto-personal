@@ -58,7 +58,6 @@ INSERT INTO bancos (id, label) VALUES
   ('falabella',  'Falabella / CMR'),
   ('oh',         'Financiera Oh!'),
   ('cencosud',   'Cencosud'),
-  ('amex',       'American Express'),
   ('otro',       'Otro banco');
 
 
@@ -109,14 +108,14 @@ INSERT INTO tarjeta_tipos (id, banco_id, label, red, tipo) VALUES
   ('bcp-visa-clasica',  'bcp',        'Visa Clásica',              'visa',       'credito'),
   ('bcp-visa-oro',      'bcp',        'Visa Oro',                  'visa',       'credito'),
   ('bcp-visa-plat',     'bcp',        'Visa Platinum',             'visa',       'credito'),
-  ('bcp-mc-clasica',    'bcp',        'Mastercard Clásica',        'mastercard', 'credito'),
-  ('bcp-mc-oro',        'bcp',        'Mastercard Oro',            'mastercard', 'credito'),
   ('bcp-debito',        'bcp',        'Débito BCP',                'visa',       'debito'),
   ('bbva-visa',         'bbva',       'Visa Continental',          'visa',       'credito'),
   ('bbva-mc',           'bbva',       'Mastercard BBVA',           'mastercard', 'credito'),
   ('bbva-debito',       'bbva',       'Débito BBVA',               'visa',       'debito'),
   ('ibank-visa',        'interbank',  'Visa Interbank',            'visa',       'credito'),
-  ('ibank-mc',          'interbank',  'Mastercard Interbank',      'mastercard', 'credito'),
+  ('ibank-amex-green',  'interbank',  'AmEx Green (Interbank)',    'amex',       'credito'),
+  ('ibank-amex-gold',   'interbank',  'AmEx Gold (Interbank)',     'amex',       'credito'),
+  ('ibank-amex-plat',   'interbank',  'AmEx Platinum (Interbank)', 'amex',       'credito'),
   ('ibank-debito',      'interbank',  'Débito Interbank',          'visa',       'debito'),
   ('scot-visa',         'scotiabank', 'Visa Scotiabank',           'visa',       'credito'),
   ('scot-mc',           'scotiabank', 'Mastercard Scotiabank',     'mastercard', 'credito'),
@@ -129,9 +128,6 @@ INSERT INTO tarjeta_tipos (id, banco_id, label, red, tipo) VALUES
   ('falabella-cmr',     'falabella',  'CMR Visa',                  'visa',       'credito'),
   ('oh-mc',             'oh',         'Mastercard Oh!',            'mastercard', 'credito'),
   ('cen-mc',            'cencosud',   'Mastercard Cencosud',       'mastercard', 'credito'),
-  ('amex-gold',         'amex',       'American Express Gold',     'amex',       'credito'),
-  ('amex-green',        'amex',       'American Express Green',    'amex',       'credito'),
-  ('amex-plat',         'amex',       'American Express Platinum', 'amex',       'credito'),
   ('otro-credito',      'otro',       'Tarjeta de Crédito',        'otro',       'credito'),
   ('otro-debito',       'otro',       'Tarjeta de Débito',         'otro',       'debito');
 
