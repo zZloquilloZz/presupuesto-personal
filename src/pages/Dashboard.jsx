@@ -82,7 +82,7 @@ export default function Dashboard() {
         mes:      MESES[mIdx],
         gastado:  gasts.reduce((s,g) => s + g.monto, 0),
         ingreso:  ingr?.neto ?? 0,
-        fijos:    esMesActual ? totalFijos : 0,
+        fijos:    totalFijos,
         esActual: esMesActual,
       };
     // Solo mostrar meses con datos O el mes actual
