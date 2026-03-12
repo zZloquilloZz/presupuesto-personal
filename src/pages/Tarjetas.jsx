@@ -18,7 +18,7 @@ function CronogramaCard({ tarjeta, cuotas, gastos }) {
   // Gastos directos cuya fecha de cargo cae en este mes
   const gastosDelMes = (gastos||[]).filter(g => {
     if (g.tarjetaId !== tarjeta.id || g.esCuota) return false;
-    const d = new Date(g.fecha);
+    const d = new Date(g.fecha + "T00:00:00");
     return d.getMonth() === mesSel && d.getFullYear() === anioActual;
   });
 
@@ -126,7 +126,7 @@ function PanelTarjeta({ tarjeta, cuotas, gastos, onEdit, onDelete }) {
     }
     const directosPendientes = (gastos||[])
       .filter(g=>g.tarjetaId===tarjeta.id&&!g.esCuota)
-      .filter(g=>new Date(g.fecha)>ultimoPago)
+      .filter(g=>new Date(g.fecha + "T00:00:00")>ultimoPago)
       .reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
     const deudaCuotas = cuotas.reduce((s,c)=>{
       const pAuto  = calcPagadasAuto(c);
@@ -152,7 +152,7 @@ function PanelTarjeta({ tarjeta, cuotas, gastos, onEdit, onDelete }) {
     } else {
       ultimoPago = new Date(anioActual,hoy.getMonth()-1,pagoDia);
     }
-    return new Date(g.fecha)>ultimoPago;
+    return new Date(g.fecha + "T00:00:00")>ultimoPago;
   });
 
   return (

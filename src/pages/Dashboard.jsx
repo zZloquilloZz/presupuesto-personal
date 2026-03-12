@@ -218,7 +218,7 @@ export default function Dashboard() {
             // Gastos directos pendientes = fecha de cargo posterior al ultimo pago
             const directosPendientes = state.gastos
               .filter(g => g.tarjetaId === t.id && !g.esCuota)
-              .filter(g => new Date(g.fecha) > ultimoPagoD)
+              .filter(g => new Date(g.fecha + "T00:00:00") > ultimoPagoD)
               .reduce((s,g) => s + (parseFloat(g.monto)||0), 0);
 
             const deudaCuotas = cuotasT.reduce((s,c) => {
@@ -278,7 +278,7 @@ export default function Dashboard() {
                 {(() => {
                   const directosList = state.gastos
                     .filter(g => g.tarjetaId === t.id && !g.esCuota)
-                    .filter(g => new Date(g.fecha) > ultimoPagoD)
+                    .filter(g => new Date(g.fecha + "T00:00:00") > ultimoPagoD)
                     .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
                   const cuotasList = cuotasT.filter(c => {
                     const anioIni = c.anioPrimerPago || anioD;
