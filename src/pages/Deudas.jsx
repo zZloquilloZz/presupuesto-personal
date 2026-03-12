@@ -9,7 +9,7 @@ import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field
 const EMPTY = {
   tipoId:"prestamo_personal", descripcion:"", acreedor:"", montoOriginal:"",
   cuotaMensual:"", mesesPactados:"", pagosRealizados:"0",
-  diaVencimiento:"", fechaInicio: new Date().toISOString().slice(0,7), notas:"",
+  diaVencimiento:"", fechaInicio: new Date().toISOString().slice(0,7), notas:"", // fechaInicio se guarda como YYYY-MM, se convierte a YYYY-MM-01 al persistir
 };
 
 export default function Deudas() {
@@ -44,7 +44,7 @@ export default function Deudas() {
       mesesPactados:   parseInt(form.mesesPactados),
       pagosRealizados: parseInt(form.pagosRealizados)||0,
       diaVencimiento:  parseInt(form.diaVencimiento)||null,
-      fechaInicio:     form.fechaInicio,
+      fechaInicio:     form.fechaInicio ? form.fechaInicio + "-01" : null,
       notas:           form.notas,
       activa:          true,
     }});
