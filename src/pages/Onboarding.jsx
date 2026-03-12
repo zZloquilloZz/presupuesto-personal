@@ -11,6 +11,34 @@ const COLORS = [
   "#8B5CF6", "#F97316", "#EF4444", "#06B6D4",
 ];
 
+// Fallback de tipos de tarjeta por banco (si la tabla tarjeta_tipos está vacía)
+const TIPOS_FALLBACK = [
+  { id:"bcp-visa-clasica",      banco_id:"bcp",        label:"Visa Clásica",          red:"visa",       tipo:"credito" },
+  { id:"bcp-visa-oro",          banco_id:"bcp",        label:"Visa Oro",              red:"visa",       tipo:"credito" },
+  { id:"bcp-visa-platinum",     banco_id:"bcp",        label:"Visa Platinum",         red:"visa",       tipo:"credito" },
+  { id:"bcp-mc-clasica",        banco_id:"bcp",        label:"Mastercard Clásica",    red:"mastercard", tipo:"credito" },
+  { id:"bcp-debito",            banco_id:"bcp",        label:"Débito BCP",            red:"visa",       tipo:"debito"  },
+  { id:"bbva-visa-cont",        banco_id:"bbva",       label:"Visa Continental",      red:"visa",       tipo:"credito" },
+  { id:"bbva-mc",               banco_id:"bbva",       label:"Mastercard BBVA",       red:"mastercard", tipo:"credito" },
+  { id:"bbva-debito",           banco_id:"bbva",       label:"Débito BBVA",           red:"visa",       tipo:"debito"  },
+  { id:"ibank-visa",            banco_id:"interbank",  label:"Visa Interbank",        red:"visa",       tipo:"credito" },
+  { id:"ibank-mc",              banco_id:"interbank",  label:"Mastercard Interbank",  red:"mastercard", tipo:"credito" },
+  { id:"ibank-debito",          banco_id:"interbank",  label:"Débito Interbank",      red:"visa",       tipo:"debito"  },
+  { id:"scot-visa",             banco_id:"scotiabank", label:"Visa Scotiabank",       red:"visa",       tipo:"credito" },
+  { id:"scot-mc",               banco_id:"scotiabank", label:"Mastercard Scotiabank", red:"mastercard", tipo:"credito" },
+  { id:"scot-debito",           banco_id:"scotiabank", label:"Débito Scotiabank",     red:"mastercard", tipo:"debito"  },
+  { id:"banbif-visa",           banco_id:"banbif",     label:"Visa BanBif",           red:"visa",       tipo:"credito" },
+  { id:"banbif-debito",         banco_id:"banbif",     label:"Débito BanBif",         red:"visa",       tipo:"debito"  },
+  { id:"ripley-mc",             banco_id:"ripley",     label:"Mastercard Ripley",     red:"mastercard", tipo:"credito" },
+  { id:"falabella-cmr",         banco_id:"falabella",  label:"CMR Visa",              red:"visa",       tipo:"credito" },
+  { id:"oh-mc",                 banco_id:"oh",         label:"Mastercard Oh!",        red:"mastercard", tipo:"credito" },
+  { id:"cencosud-mc",           banco_id:"cencosud",   label:"Mastercard Cencosud",   red:"mastercard", tipo:"credito" },
+  { id:"amex-gold",             banco_id:"amex",       label:"American Express Gold", red:"amex",       tipo:"credito" },
+  { id:"amex-green",            banco_id:"amex",       label:"American Express Green",red:"amex",       tipo:"credito" },
+  { id:"otro-credito",          banco_id:"otro",       label:"Tarjeta de Crédito",    red:"otro",       tipo:"credito" },
+  { id:"otro-debito",           banco_id:"otro",       label:"Tarjeta de Débito",     red:"otro",       tipo:"debito"  },
+];
+
 // AFP fallback si la tabla aún no tiene datos
 const AFP_FALLBACK = [
   { id: "integra",    label: "AFP Integra",    tasa: 11.37 },
@@ -37,8 +65,9 @@ export default function Onboarding() {
   const [pagoDia,  setPagoDia]  = useState("");
   const [color,    setColor]    = useState(COLORS[0]);
 
-  const afps          = state.afps.length ? state.afps : AFP_FALLBACK;
-  const tiposFiltrados = state.tarjetaTipos.filter(t => t.banco_id === bancoId);
+  const afps           = state.afps.length ? state.afps : AFP_FALLBACK;
+  const allTipos       = state.tarjetaTipos.length ? state.tarjetaTipos : TIPOS_FALLBACK;
+  const tiposFiltrados = allTipos.filter(t => t.banco_id === bancoId);
 
   function resetTarjetaForm() {
     setBancoId(""); setTipoId(""); setLinea("");
@@ -47,7 +76,7 @@ export default function Onboarding() {
 
   function agregarTarjeta() {
     if (!bancoId || !tipoId) return;
-    const tipo  = state.tarjetaTipos.find(t => t.id === tipoId);
+    const tipo  = allTipos.find(t => t.id === tipoId);
     const banco = state.bancos.find(b => b.id === bancoId);
     setTarjetas(prev => [...prev, {
       id:           uid(),
