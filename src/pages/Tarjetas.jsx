@@ -2,6 +2,7 @@
 // El usuario puede agregar/editar/eliminar tarjetas
 
 import { useState } from "react";
+import { uid } from "../utils";
 import { useApp } from "../context/AppContext";
 import { fmt, diasPara } from "../utils";
 import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field } from "../components/UI";
@@ -266,26 +267,33 @@ function PanelTarjeta({ tarjeta, cuotas, gastos, onEdit, onDelete }) {
 }
 
 // ── FormTarjeta ──────────────────────────────────────────────────────────────
-function FormTarjeta({ bancos, initial, onSave, onCancel }) {
-  const [form, setForm] = useState(initial || { bancoId:"bcp", nombre:"", color:"#38BDF8", lineaCredito:"", cierre:"", pagoDia:"" });
+function FormTarjeta({ bancos, tarjetaTipos, initial, onSave, onCancel }) {
+  const [form, setForm] = useState(initial || { bancoId: bancos[0]?.id || "", tipoId: "", color: "#38BDF8", lineaCredito: "", cierre: "", pagoDia: "" });
   const [errors, setErrors] = useState({});
-  const sf = (k,v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
+  const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: null })); };
+
+  const tiposFiltrados = tarjetaTipos.filter(t => t.banco_id === form.bancoId);
 
   const validate = () => {
     const e = {};
-    if (!form.nombre.trim())              e.nombre       = "Requerido";
-    if (!form.lineaCredito||parseFloat(form.lineaCredito)<=0) e.lineaCredito = "Requerido";
-    if (!form.cierre||parseInt(form.cierre)<1||parseInt(form.cierre)>31)   e.cierre   = "Día 1-31";
-    if (!form.pagoDia||parseInt(form.pagoDia)<1||parseInt(form.pagoDia)>31) e.pagoDia = "Día 1-31";
+    if (!form.tipoId)                                                          e.tipoId      = "Selecciona un tipo";
+    if (!form.lineaCredito || parseFloat(form.lineaCredito) <= 0)              e.lineaCredito = "Requerido";
+    if (!form.cierre  || parseInt(form.cierre) < 1  || parseInt(form.cierre) > 31)  e.cierre  = "Día 1-31";
+    if (!form.pagoDia || parseInt(form.pagoDia) < 1 || parseInt(form.pagoDia) > 31) e.pagoDia = "Día 1-31";
     return e;
   };
 
   const handleSave = () => {
     const e = validate();
     if (Object.keys(e).length) { setErrors(e); return; }
+    const tipo  = tarjetaTipos.find(t => t.id === form.tipoId);
+    const banco = bancos.find(b => b.id === form.bancoId);
     onSave({
       bancoId:      form.bancoId,
-      nombre:       form.nombre.trim(),
+      bancoLabel:   banco?.label || form.bancoId,
+      tipoId:       form.tipoId,
+      tipoLabel:    tipo?.label || form.tipoId,
+      nombre:       tipo?.label || form.tipoId,
       color:        form.color,
       lineaCredito: parseFloat(form.lineaCredito),
       cierre:       parseInt(form.cierre),
@@ -293,40 +301,49 @@ function FormTarjeta({ bancos, initial, onSave, onCancel }) {
     });
   };
 
-  const COLORES = ["#38BDF8","#F59E0B","#10B981","#8B5CF6","#EC4899","#F97316","#6B7280"];
+  const COLORES = ["#38BDF8", "#F59E0B", "#10B981", "#8B5CF6", "#EC4899", "#F97316", "#6B7280"];
 
   return (
-    <Card className="fade-up" style={{ borderColor:"var(--blue-border)" }}>
-      <SectionTitle color="var(--blue)">{initial?.id?"Editar tarjeta":"Nueva tarjeta"}</SectionTitle>
-      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        <Field label="Banco">
-          <select value={form.bancoId} onChange={e=>sf("bancoId",e.target.value)} style={{ width:"100%", padding:"8px 10px", fontSize:11 }}>
-            {bancos.map(b=><option key={b.id} value={b.id}>{b.label}</option>)}
-          </select>
-        </Field>
-        <Field label="Nombre personalizado" error={errors.nombre}>
-          <input placeholder="Ej: Visa Clásica BCP" value={form.nombre} onChange={e=>sf("nombre",e.target.value)}/>
-        </Field>
+    <Card className="fade-up" style={{ borderColor: "var(--blue-border)" }}>
+      <SectionTitle color="var(--blue)">{initial?.id ? "Editar tarjeta" : "Nueva tarjeta"}</SectionTitle>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="Banco">
+            <select value={form.bancoId} onChange={e => { sf("bancoId", e.target.value); sf("tipoId", ""); }}
+              style={{ width: "100%", padding: "8px 10px", fontSize: 11 }}>
+              <option value="">Selecciona...</option>
+              {bancos.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Tipo de tarjeta" error={errors.tipoId}>
+            <select value={form.tipoId} onChange={e => sf("tipoId", e.target.value)}
+              disabled={!form.bancoId || tiposFiltrados.length === 0}
+              style={{ width: "100%", padding: "8px 10px", fontSize: 11 }}>
+              <option value="">{form.bancoId ? "Selecciona..." : "Primero el banco"}</option>
+              {tiposFiltrados.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </Field>
+        </div>
         <Field label="Color">
-          <div style={{ display:"flex", gap:8 }}>
-            {COLORES.map(c=>(
-              <button key={c} onClick={()=>sf("color",c)} style={{ width:28, height:28, borderRadius:"50%", background:c, border:`3px solid ${form.color===c?"white":"transparent"}`, cursor:"pointer", outline:form.color===c?`2px solid ${c}`:"none", outlineOffset:2 }}/>
+          <div style={{ display: "flex", gap: 8 }}>
+            {COLORES.map(c => (
+              <button key={c} onClick={() => sf("color", c)} style={{ width: 28, height: 28, borderRadius: "50%", background: c, border: `3px solid ${form.color === c ? "white" : "transparent"}`, cursor: "pointer", outline: form.color === c ? `2px solid ${c}` : "none", outlineOffset: 2 }} />
             ))}
           </div>
         </Field>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           <Field label="Línea de crédito (S/.)" error={errors.lineaCredito}>
-            <input type="number" placeholder="5000" value={form.lineaCredito} onChange={e=>sf("lineaCredito",e.target.value)}/>
+            <input type="number" placeholder="5000" value={form.lineaCredito} onChange={e => sf("lineaCredito", e.target.value)} />
           </Field>
           <Field label="Día de cierre" error={errors.cierre}>
-            <input type="number" min="1" max="31" placeholder="10" value={form.cierre} onChange={e=>sf("cierre",e.target.value)}/>
+            <input type="number" min="1" max="31" placeholder="10" value={form.cierre} onChange={e => sf("cierre", e.target.value)} />
           </Field>
           <Field label="Día de pago" error={errors.pagoDia}>
-            <input type="number" min="1" max="31" placeholder="5" value={form.pagoDia} onChange={e=>sf("pagoDia",e.target.value)}/>
+            <input type="number" min="1" max="31" placeholder="5" value={form.pagoDia} onChange={e => sf("pagoDia", e.target.value)} />
           </Field>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
-          <Btn variant="primary" size="full" onClick={handleSave}>{initial?.id?"Guardar cambios":"Agregar tarjeta"}</Btn>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn variant="primary" size="full" onClick={handleSave}>{initial?.id ? "Guardar cambios" : "Agregar tarjeta"}</Btn>
           <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>
         </div>
       </div>
@@ -341,8 +358,9 @@ export default function Tarjetas() {
   const [showForm, setShowForm] = useState(false);
   const [editando, setEditando] = useState(null); // tarjeta a editar
 
-  const tarjetas = state.tarjetasCredito || [];
-  const bancos   = state.bancos || [];
+  const tarjetas     = state.tarjetasCredito || [];
+  const bancos       = state.bancos || [];
+  const tarjetaTipos = state.tarjetaTipos || [];
 
   // Auto-seleccionar primera tarjeta si no hay tab
   const tarjetaActiva = tabId
@@ -361,7 +379,7 @@ export default function Tarjetas() {
     if (editando) {
       dispatch({ type:"UPDATE_TARJETA", id:editando.id, payload:data });
     } else {
-      dispatch({ type:"ADD_TARJETA", payload:{ id: Date.now().toString(36), ...data } });
+      dispatch({ type:"ADD_TARJETA", payload:{ id: uid(), ...data } });
     }
     setShowForm(false);
     setEditando(null);
@@ -393,6 +411,7 @@ export default function Tarjetas() {
         {(showForm||editando) && (
           <FormTarjeta
             bancos={bancos}
+            tarjetaTipos={tarjetaTipos}
             initial={editando}
             onSave={handleSaveTarjeta}
             onCancel={()=>{ setShowForm(false); setEditando(null); }}

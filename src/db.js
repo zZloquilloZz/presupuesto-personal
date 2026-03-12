@@ -28,6 +28,14 @@ export const db = {
       const { data, error } = await supabase.from("tipos_deuda").select("*");
       check(error); return data || [];
     },
+    async getAfps() {
+      const { data, error } = await supabase.from("afps").select("*").order("label");
+      check(error); return data || [];
+    },
+    async getTarjetaTipos() {
+      const { data, error } = await supabase.from("tarjeta_tipos").select("*").order("banco_id,label");
+      check(error); return data || [];
+    },
   },
 
   // ── Tarjetas de crédito ────────────────────────────────────
@@ -36,39 +44,30 @@ export const db = {
     async getAll(uid) {
       const { data, error } = await supabase
         .from("tarjetas_credito")
-        .select("*, bancos(label)")
+        .select("*, bancos(label), tarjeta_tipos(label, red)")
         .eq("usuario_id", uid)
         .eq("activa", true)
         .order("created_at");
       check(error);
-      return (data || []).map(r => ({
-        id:           r.id,
-        bancoId:      r.banco_id,
-        bancoLabel:   r.bancos?.label || r.banco_id,
-        nombre:       r.nombre,
-        color:        r.color,
-        lineaCredito: parseFloat(r.linea_credito) || 0,
-        cierre:       r.cierre,
-        pagoDia:      r.pago_dia,
-      }));
+      return (data || []).map(normalizeTarjeta);
     },
 
     async add(uid, t) {
       const { data, error } = await supabase
         .from("tarjetas_credito")
-        .insert({ usuario_id: uid, banco_id: t.bancoId, nombre: t.nombre, color: t.color, linea_credito: t.lineaCredito, cierre: t.cierre, pago_dia: t.pagoDia })
-        .select("*, bancos(label)").single();
+        .insert({ usuario_id: uid, banco_id: t.bancoId, tipo_id: t.tipoId || null, nombre: t.nombre, color: t.color, linea_credito: t.lineaCredito, cierre: t.cierre, pago_dia: t.pagoDia })
+        .select("*, bancos(label), tarjeta_tipos(label, red)").single();
       check(error);
-      return { id: data.id, bancoId: data.banco_id, bancoLabel: data.bancos?.label || data.banco_id, nombre: data.nombre, color: data.color, lineaCredito: parseFloat(data.linea_credito) || 0, cierre: data.cierre, pagoDia: data.pago_dia };
+      return normalizeTarjeta(data);
     },
 
     async update(id, t) {
       const { data, error } = await supabase
         .from("tarjetas_credito")
-        .update({ banco_id: t.bancoId, nombre: t.nombre, color: t.color, linea_credito: t.lineaCredito, cierre: t.cierre, pago_dia: t.pagoDia, updated_at: new Date().toISOString() })
-        .eq("id", id).select("*, bancos(label)").single();
+        .update({ banco_id: t.bancoId, tipo_id: t.tipoId || null, nombre: t.nombre, color: t.color, linea_credito: t.lineaCredito, cierre: t.cierre, pago_dia: t.pagoDia, updated_at: new Date().toISOString() })
+        .eq("id", id).select("*, bancos(label), tarjeta_tipos(label, red)").single();
       check(error);
-      return { id: data.id, bancoId: data.banco_id, bancoLabel: data.bancos?.label || data.banco_id, nombre: data.nombre, color: data.color, lineaCredito: parseFloat(data.linea_credito) || 0, cierre: data.cierre, pagoDia: data.pago_dia };
+      return normalizeTarjeta(data);
     },
 
     async delete(id) {
@@ -337,12 +336,12 @@ export const db = {
       const { data, error } = await supabase.from("config").select("*").eq("usuario_id", uid).maybeSingle();
       check(error);
       if (!data) return null;
-      return { haberBasico: data.haber_basico, diaDeposito: data.dia_deposito };
+      return { haberBasico: data.haber_basico, diaDeposito: data.dia_deposito, afpId: data.afp_id ?? null };
     },
 
     async save(uid, c) {
       const { error } = await supabase.from("config")
-        .upsert({ usuario_id: uid, haber_basico: c.haberBasico, dia_deposito: c.diaDeposito, updated_at: new Date().toISOString() },
+        .upsert({ usuario_id: uid, haber_basico: c.haberBasico, dia_deposito: c.diaDeposito, afp_id: c.afpId ?? null, updated_at: new Date().toISOString() },
           { onConflict: "usuario_id" });
       check(error);
     },
@@ -350,6 +349,22 @@ export const db = {
 };
 
 // ── Normalizadores ──────────────────────────────────────────
+
+function normalizeTarjeta(r) {
+  return {
+    id:           r.id,
+    bancoId:      r.banco_id,
+    bancoLabel:   r.bancos?.label || r.banco_id,
+    tipoId:       r.tipo_id || null,
+    tipoLabel:    r.tarjeta_tipos?.label || null,
+    tipoRed:      r.tarjeta_tipos?.red || null,
+    nombre:       r.nombre,
+    color:        r.color,
+    lineaCredito: parseFloat(r.linea_credito) || 0,
+    cierre:       r.cierre,
+    pagoDia:      r.pago_dia,
+  };
+}
 
 function normalizeGasto(r) {
   return {

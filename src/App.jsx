@@ -3,8 +3,9 @@
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AppProvider, useApp } from "./context/AppContext";
-import Sidebar from "./components/Sidebar";
-import Login from "./pages/Login";
+import Sidebar     from "./components/Sidebar";
+import Login       from "./pages/Login";
+import Onboarding  from "./pages/Onboarding";
 import Dashboard   from "./pages/Dashboard";
 import Registro    from "./pages/Registro";
 import Presupuesto from "./pages/Presupuesto";
@@ -42,6 +43,7 @@ function AppShellInner({ logout, userEmail }) {
   }, [state.errorMsg]);
 
   if (state.loading) return <LoadingScreen text="Cargando datos..." />;
+  if (state.onboardingPendiente) return <Onboarding />;
 
   const PageComponent = PAGES[page] || Dashboard;
   return (

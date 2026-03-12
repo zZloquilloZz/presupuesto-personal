@@ -8,23 +8,27 @@ import { SUELDO } from "../constants";
 
 // ── Estado inicial ──────────────────────────────────────────
 const INITIAL_STATE = {
-  loading:           true,
-  errorMsg:          null,
-  categorias:        [],
-  metodos:           [],
-  bancos:            [],
-  tiposDeuda:        [],
-  tarjetasCredito:   [],
-  cuotas:            {},   // { [tarjetaId]: { tarjeta, cuotasActivas[] } }
-  gastos:            [],
-  gastosFijos:       [],
-  gastosRecurrentes: [],
-  historialIngresos: [],
-  presupuestos:      {},
-  deudas:            [],
+  loading:             true,
+  errorMsg:            null,
+  onboardingPendiente: false,
+  categorias:          [],
+  metodos:             [],
+  bancos:              [],
+  tiposDeuda:          [],
+  afps:                [],
+  tarjetaTipos:        [],
+  tarjetasCredito:     [],
+  cuotas:              {},   // { [tarjetaId]: { tarjeta, cuotasActivas[] } }
+  gastos:              [],
+  gastosFijos:         [],
+  gastosRecurrentes:   [],
+  historialIngresos:   [],
+  presupuestos:        {},
+  deudas:              [],
   config: {
     haberBasico: SUELDO.HABER_BASICO,
     diaDeposito: SUELDO.DIA_DEPOSITO,
+    afpId:       null,
   },
 };
 
@@ -159,6 +163,9 @@ function reducer(state, action) {
     case "SET_CONFIG":
       return { ...state, config: { ...state.config, ...action.payload } };
 
+    case "COMPLETE_ONBOARDING":
+      return { ...state, onboardingPendiente: false };
+
     default:
       return state;
   }
@@ -185,6 +192,8 @@ export function AppProvider({ children }) {
       db.catalogos.getMetodos(),
       db.catalogos.getBancos(),
       db.catalogos.getTiposDeuda(),
+      db.catalogos.getAfps(),
+      db.catalogos.getTarjetaTipos(),
       db.tarjetas.getAll(user.id),
       db.cuotas.getAll(user.id),
       db.gastos.getAll(user.id),
@@ -195,24 +204,25 @@ export function AppProvider({ children }) {
       db.deudas.getAll(user.id),
       db.config.get(user.id),
     ]).then(([
-      categorias, metodos, bancos, tiposDeuda,
+      categorias, metodos, bancos, tiposDeuda, afps, tarjetaTipos,
       tarjetasCredito, cuotas,
       gastos, gastosFijos, gastosRecurrentes,
       historialIngresos, presupuestos, deudas, config,
     ]) => {
+      const cfg = config || INITIAL_STATE.config;
       localDispatch({
         type: "HYDRATE",
         payload: {
           loading: false,
-          categorias, metodos, bancos, tiposDeuda,
+          onboardingPendiente: !config || config.afpId === null,
+          categorias, metodos, bancos, tiposDeuda, afps, tarjetaTipos,
           tarjetasCredito, cuotas,
           gastos, gastosFijos, gastosRecurrentes,
           historialIngresos, presupuestos, deudas,
-          config: config || INITIAL_STATE.config,
+          config: cfg,
         },
       });
 
-      // Aplicar recurrentes del mes en background
       aplicarRecurrentesPendientes(user.id, gastosRecurrentes, gastos, localDispatch);
 
     }).catch(err => {
