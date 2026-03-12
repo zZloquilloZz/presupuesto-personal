@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"#F87171"    },
 ];
 
-export default function Sidebar({ activePage, onNavigate, onLogout, userEmail }) {
+export default function Sidebar({ activePage, onNavigate, onLogout, userEmail, afpLabel, afpTasa }) {
   return (
     <>
       <aside style={{
@@ -106,8 +106,14 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail })
 
         {/* Footer AFP */}
         <div style={{ padding: "10px 16px", borderTop: "1px solid #1E2530" }}>
-          <div style={{ fontSize: 8, color: "#374151", fontFamily: "Syne, sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>AFP Integra</div>
-          <div style={{ fontSize: 9, color: "#475569", fontFamily: "DM Mono, monospace" }}>11.37% descuento en boleta</div>
+          <div style={{ fontSize: 8, color: "#374151", fontFamily: "Syne, sans-serif", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>
+            {afpLabel || "AFP"}
+          </div>
+          <div style={{ fontSize: 9, color: afpLabel ? "#475569" : "#374151", fontFamily: "DM Mono, monospace" }}>
+            {afpLabel
+              ? (afpTasa > 0 ? `${afpTasa}% descuento en boleta` : "Sin descuento AFP")
+              : "No configurada — ve a Ingresos"}
+          </div>
         </div>
       </aside>
     </>

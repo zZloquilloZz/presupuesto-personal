@@ -35,6 +35,10 @@ function AppShellInner({ logout, userEmail }) {
   const { state, dispatch } = useApp();
   const [page, setPage] = useState("dashboard");
 
+  const afpInfo  = state.afps?.find(a => a.id === state.config?.afpId);
+  const afpLabel = afpInfo?.label ?? null;
+  const afpTasa  = afpInfo?.tasa  ?? 0;
+
   // Auto-limpiar el mensaje de error después de 4 segundos
   useEffect(() => {
     if (!state.errorMsg) return;
@@ -48,7 +52,7 @@ function AppShellInner({ logout, userEmail }) {
   const PageComponent = PAGES[page] || Dashboard;
   return (
     <div className="app-layout">
-      <Sidebar activePage={page} onNavigate={setPage} onLogout={logout} userEmail={userEmail} />
+      <Sidebar activePage={page} onNavigate={setPage} onLogout={logout} userEmail={userEmail} afpLabel={afpLabel} afpTasa={afpTasa} />
       <main style={{ marginLeft: 215, flex: 1, minHeight: "100vh", overflowY: "auto" }}>
         <PageComponent />
       </main>
