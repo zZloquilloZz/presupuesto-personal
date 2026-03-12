@@ -40,19 +40,18 @@ export function AuthProvider({ children }) {
       if (code) {
         limpiarUrlAuth();
         try {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (!error) {
-            await supabase.auth.signOut();
-            setEmailConfirmed(true);
+            // Mantener sesión activa para que el usuario complete el onboarding
+            setUser(data.session?.user ?? null);
           } else {
             console.error("Error al intercambiar code:", error.message);
+            setUser(null);
           }
         } catch (e) {
           console.error("Error PKCE:", e);
+          setUser(null);
         }
-        // Registrar listener DESPUÉS de que el flujo de confirmación terminó
-        // para evitar que eventos intermedios (SIGNED_IN) pongan user != null
-        setUser(null);
         setLoading(false);
         setupListener();
         return;

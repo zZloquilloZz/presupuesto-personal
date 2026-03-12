@@ -1,12 +1,3 @@
-// ── AFP INTEGRA ──────────────────────────────────────
-export const AFP = {
-  FONDO:           10.00,
-  INVALIDEZ:        1.37,
-  COMISION_FLUJO:   0.00,
-  TOTAL:           11.37,
-  COMISION_SALDO:   1.20,
-};
-
 // ── SUELDO BASE ──────────────────────────────────────
 export const SUELDO = {
   HABER_BASICO:  1443.00,

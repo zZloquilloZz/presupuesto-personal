@@ -55,7 +55,7 @@ export default function Login() {
             <strong style={{ color:"var(--blue)" }}>{email}</strong>
           </div>
           <div style={{ fontSize:10, color:"var(--text-ghost)", marginBottom:20 }}>
-            Después de confirmar, vuelve aquí e inicia sesión.
+            Al hacer clic en el link, configurarás tu AFP y tarjetas antes de ingresar.
           </div>
           <button onClick={() => { setOk(false); setModo("login"); setEmail(""); setPassword(""); }} style={styles.btn}>
             Ir al login
@@ -99,10 +99,10 @@ export default function Login() {
           <div style={{ background:"rgba(34,197,94,0.1)", border:"1px solid rgba(34,197,94,0.3)", borderRadius:"var(--radius-sm)", padding:"10px 14px", marginBottom:8, textAlign:"center" }}>
             <div style={{ fontSize:14, marginBottom:4 }}>✅</div>
             <div style={{ fontSize:11, color:"#22C55E", fontFamily:"var(--font-sans)", fontWeight:700 }}>
-              Email confirmado correctamente
+              ¡Cuenta lista! Ya puedes ingresar
             </div>
             <div style={{ fontSize:10, color:"var(--text-dim)", marginTop:4 }}>
-              Ahora inicia sesión con tu email y contraseña
+              Inicia sesión con tu email y contraseña
             </div>
           </div>
         )}

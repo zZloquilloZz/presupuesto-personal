@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { useAuth } from "../context/AuthContext";
 import { uid } from "../utils";
 
 const COLORS = [
@@ -22,6 +23,7 @@ const AFP_FALLBACK = [
 
 export default function Onboarding() {
   const { state, dispatch } = useApp();
+  const { logout, setEmailConfirmed } = useAuth();
   const [step,    setStep]    = useState(0);
   const [afpId,   setAfpId]   = useState(null);
   const [tarjetas, setTarjetas] = useState([]);
@@ -69,7 +71,9 @@ export default function Onboarding() {
       for (const t of tarjetas) {
         await dispatch({ type: "ADD_TARJETA", payload: t });
       }
-      dispatch({ type: "COMPLETE_ONBOARDING" });
+      // Mostrar banner "cuenta lista" en Login y cerrar sesión
+      setEmailConfirmed(true);
+      await logout();
     } catch {
       setSaving(false);
     }

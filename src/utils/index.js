@@ -1,4 +1,4 @@
-import { AFP, SUELDO } from "../constants";
+import { SUELDO } from "../constants";
 
 // Formatea un numero como moneda peruana: 1234.5 → "1,234.50"
 export function fmt(v, decimals = 2) {
@@ -21,12 +21,13 @@ export function diasPara(dia) {
   return Math.ceil((fecha - hoy) / 86400000);
 }
 
-// Calcula neto segun boleta AFP Integra
+// Calcula neto segun boleta
+// afpTasa: porcentaje de descuento AFP (ej: 11.37 para Integra, 13 para ONP, 0 sin aporte)
 // Retorna { base, bruto, afp, neto }
-export function calcNeto(haberBasico, he25 = 0, he100 = 0, extras = 0) {
+export function calcNeto(haberBasico, he25 = 0, he100 = 0, extras = 0, afpTasa = 0) {
   const base  = haberBasico + SUELDO.ASIG_FAMILIAR;
   const bruto = base + (he25 * SUELDO.VALOR_HE25) + (he100 * SUELDO.VALOR_HE100);
-  const afp   = parseFloat((bruto * AFP.TOTAL / 100).toFixed(2));
+  const afp   = parseFloat((bruto * (afpTasa || 0) / 100).toFixed(2));
   const neto  = parseFloat((bruto - afp + extras).toFixed(2));
   return { base, bruto, afp, neto };
 }

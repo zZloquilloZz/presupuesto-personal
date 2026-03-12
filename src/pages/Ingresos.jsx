@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
 import { useApp, useIngresoMes } from "../context/AppContext";
-import { AFP, SUELDO, MESES } from "../constants";
+import { SUELDO, MESES } from "../constants";
 import { fmt, calcNeto, diasPara } from "../utils";
 import { Card, SectionTitle, KPICard, PageHeader, ChartTooltip, NumberStepper, Field, Btn } from "../components/UI";
 
@@ -29,6 +29,8 @@ export default function Ingresos() {
 
   const sf = (k,v) => setForm(f => ({...f,[k]:v}));
 
+  const afpTasa      = state.afps?.find(a => a.id === state.config?.afpId)?.tasa ?? 0;
+  const afpLabel     = state.afps?.find(a => a.id === state.config?.afpId)?.label ?? null;
   const mesActual    = useIngresoMes();
   const mesExiste    = state.historialIngresos.some(h => h.mesIdx===mesIdx && h.anio===anio);
   const historial    = state.historialIngresos;
@@ -42,13 +44,13 @@ export default function Ingresos() {
 
   const guardar = () => {
     const extras = (parseFloat(form.gratificacion)||0)+(parseFloat(form.cts)||0)+(parseFloat(form.bono)||0)+(parseFloat(form.otroExtra)||0);
-    const { bruto, afp, neto } = calcNeto(parseFloat(form.haberBasico)||SUELDO.HABER_BASICO, parseFloat(form.he25)||0, parseFloat(form.he100)||0, extras);
+    const { bruto, afp, neto } = calcNeto(parseFloat(form.haberBasico)||SUELDO.HABER_BASICO, parseFloat(form.he25)||0, parseFloat(form.he100)||0, extras, afpTasa);
     dispatch({ type:"SAVE_INGRESO", payload: { ...form, mesIdx, anio, bruto, afp, neto, haberBasico:parseFloat(form.haberBasico)||SUELDO.HABER_BASICO, he25:parseFloat(form.he25)||0, he100:parseFloat(form.he100)||0, gratificacion:parseFloat(form.gratificacion)||0, cts:parseFloat(form.cts)||0, bono:parseFloat(form.bono)||0, otroExtra:parseFloat(form.otroExtra)||0 } });
     setSaved(true); setTimeout(() => setSaved(false), 2500);
   };
 
   const extras   = (parseFloat(form.gratificacion)||0)+(parseFloat(form.cts)||0)+(parseFloat(form.bono)||0)+(parseFloat(form.otroExtra)||0);
-  const preview  = calcNeto(parseFloat(form.haberBasico)||SUELDO.HABER_BASICO, parseFloat(form.he25)||0, parseFloat(form.he100)||0, extras);
+  const preview  = calcNeto(parseFloat(form.haberBasico)||SUELDO.HABER_BASICO, parseFloat(form.he25)||0, parseFloat(form.he100)||0, extras, afpTasa);
   const baseEdit = (parseFloat(form.haberBasico)||SUELDO.HABER_BASICO) + SUELDO.ASIG_FAMILIAR;
   const diasDep  = diasPara(diaDeposito);
   const promedioNeto = historial.length ? historial.reduce((s,h)=>s+h.neto,0)/historial.length : 0;
@@ -64,7 +66,9 @@ export default function Ingresos() {
     activo: h.mesIdx === MES_HOY && h.anio === ANIO_HOY,
   }));
 
-  const [chartMode, setChartMode] = useState("comparar"); // "comparar" | "neto"
+  const [chartMode, setChartMode]   = useState("comparar"); // "comparar" | "neto"
+  const [editAfp,   setEditAfp]     = useState(false);
+  const [afpSel,    setAfpSel]      = useState(state.config?.afpId || "");
 
   return (
     <div>
@@ -80,9 +84,56 @@ export default function Ingresos() {
         {/* KPIs */}
         <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
           <KPICard label="Neto mes actual"   value={mesActual?`S/. ${fmt(mesActual.neto)}`:"Sin registrar"} valueColor={mesActual?"var(--green)":"var(--text-dim)"} bg={mesActual?"var(--green-bg)":"var(--bg-input)"} border={mesActual?"var(--green-border)":"var(--border)"} sub={mesActual?`Bruto S/. ${fmt(mesActual.bruto)}`:"Registra este mes"} delay={0}/>
-          <KPICard label="Sueldo base neto"  value={`S/. ${fmt(baseEdit*(1-AFP.TOTAL/100))}`} sub="Sin HE ni extras" delay={0.06}/>
+          <KPICard label="Sueldo base neto"  value={`S/. ${fmt(baseEdit*(1-(afpTasa||0)/100))}`} sub={afpLabel ? afpLabel : "Sin AFP configurada"} delay={0.06}/>
           <KPICard label="Promedio neto"     value={historial.length?`S/. ${fmt(promedioNeto)}`:"—"} valueColor="var(--blue)" bg="var(--blue-bg)" border="var(--blue-border)" sub={`${historial.length} meses`} delay={0.12}/>
           <KPICard label="Proximo deposito"  value={diasDep!==null?`${diasDep} dias`:"—"} valueColor={diasDep<=3?"var(--red)":diasDep<=7?"var(--yellow)":"var(--green)"} sub={`Dia ${diaDeposito} de cada mes`} delay={0.18}/>
+        </div>
+
+        {/* AFP configurada */}
+        <div style={{ background: afpLabel ? "var(--bg-input)" : "var(--red-bg)", border: `1px solid ${afpLabel ? "var(--border)" : "var(--red-border)"}`, borderRadius: "var(--radius-md)", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          {!editAfp ? (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 16 }}>🏦</span>
+                <div>
+                  <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+                    {afpLabel || "AFP no configurada"}
+                  </div>
+                  <div style={{ fontSize: 9, color: "var(--text-ghost)", marginTop: 2 }}>
+                    {afpTasa > 0 ? `Descuento: ${afpTasa}% del bruto` : afpLabel ? "Sin descuento AFP" : "Configura tu AFP para calcular el neto correctamente"}
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => { setEditAfp(true); setAfpSel(state.config?.afpId || ""); }}
+                style={{ background: "var(--bg-hover)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-muted)", fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 700, padding: "6px 12px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}>
+                ✏ Cambiar AFP
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                <span style={{ fontSize: 9, color: "var(--text-ghost)", fontFamily: "var(--font-sans)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>AFP</span>
+                <select value={afpSel} onChange={e => setAfpSel(e.target.value)}
+                  style={{ flex: 1, padding: "6px 10px", fontSize: 11 }}>
+                  <option value="">Selecciona...</option>
+                  {(state.afps || []).map(a => (
+                    <option key={a.id} value={a.id}>{a.label}{a.tasa > 0 ? ` (${a.tasa}%)` : ""}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                <button onClick={() => { dispatch({ type: "SET_CONFIG", payload: { ...state.config, afpId: afpSel || null } }); setEditAfp(false); }}
+                  disabled={!afpSel}
+                  style={{ background: "var(--green)", border: "none", borderRadius: "var(--radius-sm)", color: "#0A0C10", fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 800, padding: "6px 14px", cursor: afpSel ? "pointer" : "not-allowed", opacity: afpSel ? 1 : 0.4, textTransform: "uppercase" }}>
+                  Guardar
+                </button>
+                <button onClick={() => setEditAfp(false)}
+                  style={{ background: "none", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-ghost)", fontFamily: "var(--font-sans)", fontSize: 9, padding: "6px 10px", cursor: "pointer" }}>
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 360px", gap:18 }}>
@@ -197,7 +248,7 @@ export default function Ingresos() {
                     <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--text-secondary)" }}>S/. {fmt(preview.bruto)}</span>
                   </div>
                   <div style={{ display:"flex", justifyContent:"space-between" }}>
-                    <span style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>AFP Integra ({AFP.TOTAL}%)</span>
+                    <span style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>{afpLabel || "AFP"}{afpTasa > 0 ? ` (${afpTasa}%)` : ""}</span>
                     <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:"var(--red)" }}>- S/. {fmt(preview.afp)}</span>
                   </div>
                   {extras > 0 && (
@@ -299,26 +350,33 @@ export default function Ingresos() {
               </div>
             </Card>
 
-            {/* AFP info */}
-            <Card style={{ borderColor:"var(--red-border)" }}>
-              <SectionTitle color="var(--red)">AFP Integra — Descuentos</SectionTitle>
-              <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
-                {[
-                  {l:"Fondo pensiones",     v:`${AFP.FONDO}%`,    h:"Fijo por ley",               c:"var(--red)"},
-                  {l:"Seguro invalidez",    v:`${AFP.INVALIDEZ}%`,h:"Lic. SBS hasta Dic 2026",    c:"var(--red)"},
-                  {l:"Comision flujo",      v:"0%",               h:"Integra: sin cobro en boleta",c:"var(--green)"},
-                  {l:"Total descuento",     v:`${AFP.TOTAL}%`,    h:"Sobre total bruto",           c:"var(--red)", bold:true},
-                  {l:"Comision sobre saldo",v:`${AFP.COMISION_SALDO}% anual`,h:"Sobre fondo acumulado — no aparece en boleta",c:"var(--text-dim)"},
-                ].map((r,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingBottom:i<4?9:0, borderBottom:i<4?"1px solid var(--border)":"none" }}>
+            {/* AFP info — dinámica según la AFP configurada */}
+            <Card style={{ borderColor: afpLabel ? "var(--red-border)" : "var(--border)" }}>
+              <SectionTitle color={afpLabel ? "var(--red)" : "var(--text-dim)"}>
+                {afpLabel ? `${afpLabel} — Descuento en boleta` : "AFP — Sin configurar"}
+              </SectionTitle>
+              {afpLabel ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingBottom:9, borderBottom:"1px solid var(--border)" }}>
                     <div>
-                      <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>{r.l}</div>
-                      <div style={{ fontSize:8, color:"var(--text-ghost)", marginTop:1 }}>{r.h}</div>
+                      <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>Tasa total de descuento</div>
+                      <div style={{ fontSize:8, color:"var(--text-ghost)", marginTop:1 }}>Se descuenta del sueldo bruto cada mes</div>
                     </div>
-                    <span style={{ fontFamily:"var(--font-mono)", fontSize:r.bold?14:12, color:r.c, fontWeight:r.bold?500:400 }}>{r.v}</span>
+                    <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--red)", fontWeight:500 }}>{afpTasa}%</span>
                   </div>
-                ))}
-              </div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                    <div>
+                      <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>Descuento mensual estimado</div>
+                      <div style={{ fontSize:8, color:"var(--text-ghost)", marginTop:1 }}>Sobre haber básico + asig. familiar</div>
+                    </div>
+                    <span style={{ fontFamily:"var(--font-mono)", fontSize:12, color:"var(--red)" }}>S/. {fmt(preview.bruto * afpTasa / 100)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize:10, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", padding:"8px 0" }}>
+                  Usa el botón "Cambiar AFP" de arriba para configurar tu sistema previsional.
+                </div>
+              )}
             </Card>
 
             {/* Lista registros */}
