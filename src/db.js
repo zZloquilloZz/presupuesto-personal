@@ -30,11 +30,13 @@ export const db = {
     },
     async getAfps() {
       const { data, error } = await supabase.from("afps").select("*").order("label");
-      check(error); return data || [];
+      if (error) return []; // graceful: tabla puede no existir aún
+      return data || [];
     },
     async getTarjetaTipos() {
       const { data, error } = await supabase.from("tarjeta_tipos").select("*").order("banco_id,label");
-      check(error); return data || [];
+      if (error) return []; // graceful: tabla puede no existir aún
+      return data || [];
     },
   },
 

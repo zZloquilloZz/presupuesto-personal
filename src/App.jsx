@@ -47,7 +47,7 @@ function AppShellInner({ logout, userEmail }) {
   }, [state.errorMsg]);
 
   if (state.loading) return <LoadingScreen text="Cargando datos..." />;
-  if (state.onboardingPendiente) return <Onboarding />;
+  if (!state.config?.afpId) return <Onboarding />;
 
   const PageComponent = PAGES[page] || Dashboard;
   return (

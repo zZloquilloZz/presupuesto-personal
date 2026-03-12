@@ -72,6 +72,7 @@ export default function Onboarding() {
         await dispatch({ type: "ADD_TARJETA", payload: t });
       }
       // Mostrar banner "cuenta lista" en Login y cerrar sesión
+      // Cerrar sesión: el login mostrará banner de éxito
       setEmailConfirmed(true);
       await logout();
     } catch {

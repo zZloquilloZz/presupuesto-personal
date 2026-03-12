@@ -8,9 +8,8 @@ import { SUELDO } from "../constants";
 
 // ── Estado inicial ──────────────────────────────────────────
 const INITIAL_STATE = {
-  loading:             true,
-  errorMsg:            null,
-  onboardingPendiente: false,
+  loading:  true,
+  errorMsg: null,
   categorias:          [],
   metodos:             [],
   bancos:              [],
@@ -163,9 +162,6 @@ function reducer(state, action) {
     case "SET_CONFIG":
       return { ...state, config: { ...state.config, ...action.payload } };
 
-    case "COMPLETE_ONBOARDING":
-      return { ...state, onboardingPendiente: false };
-
     default:
       return state;
   }
@@ -214,7 +210,6 @@ export function AppProvider({ children }) {
         type: "HYDRATE",
         payload: {
           loading: false,
-          onboardingPendiente: !config || config.afpId === null,
           categorias, metodos, bancos, tiposDeuda, afps, tarjetaTipos,
           tarjetasCredito, cuotas,
           gastos, gastosFijos, gastosRecurrentes,
