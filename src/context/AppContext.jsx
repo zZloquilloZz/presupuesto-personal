@@ -183,7 +183,10 @@ export function AppProvider({ children }) {
 
     localDispatch({ type: "SET_LOADING", value: true });
 
-    Promise.all([
+    // allSettled: si un call falla usa valor por defecto, no mata toda la carga
+    const ok = (r, def) => r.status === "fulfilled" ? r.value : def;
+
+    Promise.allSettled([
       db.catalogos.getCategorias(),
       db.catalogos.getMetodos(),
       db.catalogos.getBancos(),
@@ -200,11 +203,27 @@ export function AppProvider({ children }) {
       db.deudas.getAll(user.id),
       db.config.get(user.id),
     ]).then(([
-      categorias, metodos, bancos, tiposDeuda, afps, tarjetaTipos,
-      tarjetasCredito, cuotas,
-      gastos, gastosFijos, gastosRecurrentes,
-      historialIngresos, presupuestos, deudas, config,
+      rCat, rMet, rBan, rTipD, rAfp, rTipT,
+      rTarj, rCuot,
+      rGast, rGFij, rGRec,
+      rIngr, rPres, rDeud, rConf,
     ]) => {
+      const categorias        = ok(rCat,  []);
+      const metodos           = ok(rMet,  []);
+      const bancos            = ok(rBan,  []);
+      const tiposDeuda        = ok(rTipD, []);
+      const afps              = ok(rAfp,  []);
+      const tarjetaTipos      = ok(rTipT, []);
+      const tarjetasCredito   = ok(rTarj, []);
+      const cuotas            = ok(rCuot, {});
+      const gastos            = ok(rGast, []);
+      const gastosFijos       = ok(rGFij, []);
+      const gastosRecurrentes = ok(rGRec, []);
+      const historialIngresos = ok(rIngr, []);
+      const presupuestos      = ok(rPres, {});
+      const deudas            = ok(rDeud, []);
+      const config            = ok(rConf, null);
+
       const cfg = config || INITIAL_STATE.config;
       localDispatch({
         type: "HYDRATE",
@@ -219,10 +238,6 @@ export function AppProvider({ children }) {
       });
 
       aplicarRecurrentesPendientes(user.id, gastosRecurrentes, gastos, localDispatch);
-
-    }).catch(err => {
-      console.error("Error cargando datos:", err);
-      localDispatch({ type: "SET_LOADING", value: false });
     });
   }, [user?.id]);
 
