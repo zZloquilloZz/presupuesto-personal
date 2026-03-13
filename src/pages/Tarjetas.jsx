@@ -272,13 +272,17 @@ function FormTarjeta({ bancos, tarjetaTipos, initial, onSave, onCancel }) {
   const sf = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: null })); };
 
   const tiposFiltrados = tarjetaTipos.filter(t => t.banco_id === form.bancoId);
+  const tipoSel        = tarjetaTipos.find(t => t.id === form.tipoId);
+  const esDebito       = tipoSel?.tipo === "debito";
 
   const validate = () => {
     const e = {};
-    if (!form.tipoId)                                                          e.tipoId      = "Selecciona un tipo";
-    if (!form.lineaCredito || parseFloat(form.lineaCredito) <= 0)              e.lineaCredito = "Requerido";
-    if (!form.cierre  || parseInt(form.cierre) < 1  || parseInt(form.cierre) > 31)  e.cierre  = "Día 1-31";
-    if (!form.pagoDia || parseInt(form.pagoDia) < 1 || parseInt(form.pagoDia) > 31) e.pagoDia = "Día 1-31";
+    if (!form.tipoId) e.tipoId = "Selecciona un tipo";
+    if (!esDebito) {
+      if (!form.lineaCredito || parseFloat(form.lineaCredito) <= 0)              e.lineaCredito = "Requerido";
+      if (!form.cierre  || parseInt(form.cierre) < 1  || parseInt(form.cierre) > 31)  e.cierre  = "Día 1-31";
+      if (!form.pagoDia || parseInt(form.pagoDia) < 1 || parseInt(form.pagoDia) > 31) e.pagoDia = "Día 1-31";
+    }
     return e;
   };
 
@@ -294,9 +298,9 @@ function FormTarjeta({ bancos, tarjetaTipos, initial, onSave, onCancel }) {
       tipoLabel:    tipo?.label || form.tipoId,
       nombre:       tipo?.label || form.tipoId,
       color:        form.color,
-      lineaCredito: parseFloat(form.lineaCredito),
-      cierre:       parseInt(form.cierre),
-      pagoDia:      parseInt(form.pagoDia),
+      lineaCredito: esDebito ? 0 : parseFloat(form.lineaCredito),
+      cierre:       esDebito ? null : parseInt(form.cierre),
+      pagoDia:      esDebito ? null : parseInt(form.pagoDia),
     });
   };
 
@@ -330,17 +334,19 @@ function FormTarjeta({ bancos, tarjetaTipos, initial, onSave, onCancel }) {
             ))}
           </div>
         </Field>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          <Field label="Línea de crédito (S/.)" error={errors.lineaCredito}>
-            <input type="number" placeholder="5000" value={form.lineaCredito} onChange={e => sf("lineaCredito", e.target.value)} />
-          </Field>
-          <Field label="Día de cierre" error={errors.cierre}>
-            <input type="number" min="1" max="31" placeholder="10" value={form.cierre} onChange={e => sf("cierre", e.target.value)} />
-          </Field>
-          <Field label="Día de pago" error={errors.pagoDia}>
-            <input type="number" min="1" max="31" placeholder="5" value={form.pagoDia} onChange={e => sf("pagoDia", e.target.value)} />
-          </Field>
-        </div>
+        {!esDebito && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <Field label="Línea de crédito (S/.)" error={errors.lineaCredito}>
+              <input type="number" placeholder="5000" value={form.lineaCredito} onChange={e => sf("lineaCredito", e.target.value)} />
+            </Field>
+            <Field label="Día de cierre" error={errors.cierre}>
+              <input type="number" min="1" max="31" placeholder="10" value={form.cierre} onChange={e => sf("cierre", e.target.value)} />
+            </Field>
+            <Field label="Día de pago" error={errors.pagoDia}>
+              <input type="number" min="1" max="31" placeholder="5" value={form.pagoDia} onChange={e => sf("pagoDia", e.target.value)} />
+            </Field>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8 }}>
           <Btn variant="primary" size="full" onClick={handleSave}>{initial?.id ? "Guardar cambios" : "Agregar tarjeta"}</Btn>
           <Btn variant="ghost" onClick={onCancel}>Cancelar</Btn>

@@ -69,6 +69,8 @@ export default function Onboarding() {
   const afps           = state.afps.length ? state.afps : AFP_FALLBACK;
   const allTipos       = state.tarjetaTipos.length ? state.tarjetaTipos : TIPOS_FALLBACK;
   const tiposFiltrados = allTipos.filter(t => t.banco_id === bancoId);
+  const tipoSel        = allTipos.find(t => t.id === tipoId);
+  const esDebito       = tipoSel?.tipo === "debito";
 
   function resetTarjetaForm() {
     setBancoId(""); setTipoId(""); setLinea("");
@@ -295,26 +297,28 @@ export default function Onboarding() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <div>
-              <div style={S.label}>Línea (S/.)</div>
-              <input type="number" placeholder="5000" value={linea}
-                onChange={e => setLinea(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box" }} />
+          {!esDebito && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div>
+                <div style={S.label}>Línea (S/.)</div>
+                <input type="number" placeholder="5000" value={linea}
+                  onChange={e => setLinea(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={S.label}>Día cierre</div>
+                <input type="number" placeholder="25" min="1" max="31" value={cierre}
+                  onChange={e => setCierre(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <div style={S.label}>Día pago</div>
+                <input type="number" placeholder="5" min="1" max="31" value={pagoDia}
+                  onChange={e => setPagoDia(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box" }} />
+              </div>
             </div>
-            <div>
-              <div style={S.label}>Día cierre</div>
-              <input type="number" placeholder="25" min="1" max="31" value={cierre}
-                onChange={e => setCierre(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <div>
-              <div style={S.label}>Día pago</div>
-              <input type="number" placeholder="5" min="1" max="31" value={pagoDia}
-                onChange={e => setPagoDia(e.target.value)}
-                style={{ width: "100%", boxSizing: "border-box" }} />
-            </div>
-          </div>
+          )}
 
           <div style={{ marginBottom: 10 }}>
             <div style={S.label}>Color</div>
