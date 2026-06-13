@@ -611,18 +611,23 @@ export default function Registro() {
               <Card>
                 <SectionTitle>Por categoría</SectionTitle>
                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {porCat.slice(0,7).map((c,i)=>(
-                    <div key={i}>
-                      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  {porCat.slice(0,7).map((c,i)=>{
+                    const activa = filtroCat === c.id;
+                    return (
+                    <button key={i} className="row-clickable" onClick={()=>setFiltroCat(activa?"todas":c.id)}
+                      title={activa?"Quitar filtro":`Filtrar por ${c.label}`}
+                      style={{ display:"block", width:"100%", textAlign:"left", background:activa?"var(--bg-hover)":"none", border:`1px solid ${activa?c.color+"66":"transparent"}`, borderRadius:"var(--radius-sm)", padding:"6px 8px", cursor:"pointer" }}>
+                      <span style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                        <span style={{ display:"flex", alignItems:"center", gap:6 }}>
                           <span style={{ fontSize:12 }}>{c.emoji}</span>
                           <span style={{ fontSize:10, color:"var(--text-secondary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{c.label}</span>
-                        </div>
+                        </span>
                         <span style={{ fontFamily:"var(--font-mono)", fontSize:11, color:c.color }}>S/. {fmt(c.total)}</span>
-                      </div>
+                      </span>
                       <ProgressBar pct={(c.total/totalFilt)*100} color={c.color}/>
-                    </div>
-                  ))}
+                    </button>
+                    );
+                  })}
                 </div>
               </Card>
             )}

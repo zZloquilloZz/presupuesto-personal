@@ -3,8 +3,9 @@
 
 import { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { useNav } from "../context/NavContext";
 import { fmt, diasPara, uid } from "../utils";
-import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field, EmptyState } from "../components/UI";
+import { Card, SectionTitle, KPICard, PageHeader, Badge, ProgressBar, Btn, Field, EmptyState, Collapsible } from "../components/UI";
 
 const EMPTY = {
   tipoId:"prestamo_personal", descripcion:"", acreedor:"", montoOriginal:"",
@@ -14,6 +15,7 @@ const EMPTY = {
 
 export default function Deudas() {
   const { state, dispatch } = useApp();
+  const { go } = useNav();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm]         = useState(EMPTY);
   const [errors, setErrors]     = useState({});
@@ -203,35 +205,24 @@ export default function Deudas() {
 
           {/* Panel derecho */}
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            <Card style={{ borderColor:"var(--border-light)" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
-                <SectionTitle style={{marginBottom:0}}>Tarjetas de crédito</SectionTitle>
-                <Badge color="var(--blue)">Módulo Tarjetas</Badge>
-              </div>
+            <Collapsible title="Cuotas de tarjetas" subtitle="Detalle del módulo Tarjetas"
+              defaultOpen={false} accentColor="var(--blue)"
+              right={<Badge color="var(--blue)">S/. {fmt(totalCuotasTarjetas)}/mes</Badge>}>
               {cuotasPorTarjeta.length===0 ? (
                 <div style={{ fontSize:10, color:"var(--text-ghost)", padding:"12px 0" }}>Sin tarjetas configuradas</div>
               ) : cuotasPorTarjeta.map(({tarjeta,cuotas,cuotaTotal},i)=>(
-                <div key={i} style={{ background:"var(--bg-input)", borderRadius:"var(--radius-md)", padding:"11px 13px", marginBottom:i<cuotasPorTarjeta.length-1?10:0 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                <button key={i} className="row-clickable" onClick={()=>go("tarjetas")} title="Ir a Tarjetas"
+                  style={{ display:"block", width:"100%", textAlign:"left", background:"var(--bg-input)", border:"1px solid transparent", borderRadius:"var(--radius-md)", padding:"11px 13px", marginBottom:i<cuotasPorTarjeta.length-1?10:0, cursor:"pointer" }}>
+                  <span style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
                     <span style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:tarjeta?.color||"var(--blue)" }}>{tarjeta?.nombre}</span>
                     <span style={{ fontFamily:"var(--font-mono)", fontSize:12, color:tarjeta?.color||"var(--blue)" }}>S/. {fmt(cuotaTotal)}/mes</span>
-                  </div>
-                  <div style={{ fontSize:9, color:"var(--text-ghost)" }}>
+                  </span>
+                  <span style={{ display:"block", fontSize:9, color:"var(--text-ghost)" }}>
                     {cuotas.length} cuota{cuotas.length!==1?"s":""} activa{cuotas.length!==1?"s":""} — Pago día {tarjeta?.pagoDia} ({diasPara(tarjeta?.pagoDia)} días)
-                  </div>
-                  {cuotas.length>0&&(
-                    <div style={{ marginTop:8, display:"flex", flexDirection:"column", gap:4 }}>
-                      {cuotas.map((c,j)=>(
-                        <div key={j} style={{ display:"flex", justifyContent:"space-between", fontSize:9, color:"var(--text-muted)" }}>
-                          <span>{c.desc}</span>
-                          <span style={{ fontFamily:"var(--font-mono)", color:tarjeta?.color||"var(--blue)" }}>S/. {fmt(c.cuota)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  </span>
+                </button>
               ))}
-            </Card>
+            </Collapsible>
 
             <Card>
               <SectionTitle>Compromisos mensuales</SectionTitle>

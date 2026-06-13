@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useApp, useGastosMes } from "../context/AppContext";
+import { useNav } from "../context/NavContext";
 
 import { fmt } from "../utils";
 import { CATEGORIAS_FALLBACK } from "../constants";
@@ -12,6 +13,7 @@ import { Card, SectionTitle, KPICard, PageHeader, ChartTooltip, ProgressBar } fr
 
 export default function Presupuesto() {
   const { state, dispatch } = useApp();
+  const { go } = useNav();
   const gastosMes = useGastosMes();
   const [editando, setEditando] = useState(null);
   const [tempVal, setTempVal] = useState("");
@@ -56,7 +58,7 @@ export default function Presupuesto() {
         {/* KPIs */}
         <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
           <KPICard label="Presupuesto total" value={`S/. ${fmt(totalPpto)}`}  valueColor="var(--text-primary)" delay={0}/>
-          <KPICard label="Gastado este mes"  value={`S/. ${fmt(totalGast)}`}  valueColor="var(--blue)"  delay={0.06}/>
+          <KPICard label="Gastado este mes"  value={`S/. ${fmt(totalGast)}`}  valueColor="var(--blue)" sub={totalPpto>0?`${((totalGast/totalPpto)*100).toFixed(0)}% del presupuesto`:"Sin presupuesto"} delay={0.06}/>
           <KPICard label="Disponible"        value={`S/. ${fmt(Math.abs(totalDisp))}`} valueColor={totalDisp>=0?"var(--green)":"var(--red)"} bg={totalDisp>=0?"var(--green-bg)":"var(--red-bg)"} border={totalDisp>=0?"var(--green-border)":"var(--red-border)"} delay={0.12}/>
           <KPICard label="Categorias alerta" value={`${excedidas} excedidas / ${enAlerta} en alerta`} valueColor={excedidas>0?"var(--red)":enAlerta>0?"var(--yellow)":"var(--green)"} delay={0.18}/>
         </div>
@@ -83,8 +85,11 @@ export default function Presupuesto() {
                 <div key={c.id} className="fade-up" style={{ animationDelay:`${i*0.04}s` }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <span style={{ fontSize:14 }}>{c.emoji}</span>
-                      <span style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:"var(--text-primary)" }}>{c.label}</span>
+                      <button onClick={()=>go("registro",{categoria:c.id})} title={`Ver gastos de ${c.label}`} className="row-clickable"
+                        style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", cursor:"pointer", padding:"2px 4px", borderRadius:"var(--radius-sm)" }}>
+                        <span style={{ fontSize:14 }}>{c.emoji}</span>
+                        <span style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:700, color:"var(--text-primary)" }}>{c.label}</span>
+                      </button>
                       {c.estado !== "ok" && (
                         <span style={{ fontSize:8, fontWeight:700, color:colorEstado(c.estado), background:colorEstado(c.estado)+"22", padding:"1px 6px", borderRadius:3, fontFamily:"var(--font-sans)", letterSpacing:"0.1em" }}>
                           {c.estado.toUpperCase()}
@@ -136,23 +141,6 @@ export default function Presupuesto() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </Card>
-
-            <Card>
-              <SectionTitle>Resumen</SectionTitle>
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                {[
-                  { l:"Categorias en orden",  v:data.filter(c=>c.pct<80).length,   c:"var(--green)"  },
-                  { l:"En alerta (>80%)",      v:enAlerta,                           c:"var(--yellow)" },
-                  { l:"Excedidas (>100%)",     v:excedidas,                          c:"var(--red)"    },
-                  { l:"% del presupuesto usado", v:`${totalPpto>0?((totalGast/totalPpto)*100).toFixed(1):0}%`, c: totalGast/totalPpto>.9?"var(--red)":totalGast/totalPpto>.7?"var(--yellow)":"var(--green)" },
-                ].map((r,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)" }}>
-                    <span style={{ fontSize:10, color:"var(--text-secondary)", fontFamily:"var(--font-sans)", fontWeight:600 }}>{r.l}</span>
-                    <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:r.c }}>{r.v}</span>
-                  </div>
-                ))}
-              </div>
             </Card>
           </div>
         </div>
