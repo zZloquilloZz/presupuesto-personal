@@ -208,7 +208,7 @@ export function ChartTooltip({ active, payload, label }) {
 }
 
 // ── PAGE HEADER ──
-export function PageHeader({ title, subtitle, accentColor, children }) {
+export function PageHeader({ title, accentColor, children }) {
   return (
     <div style={{
       borderBottom: "1px solid var(--border)", padding: "18px 28px",

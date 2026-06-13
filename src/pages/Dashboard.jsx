@@ -17,7 +17,7 @@ export default function Dashboard() {
   const [ejsReady, setEjsReady]     = useState(false);
   const ejsRef = useRef(false);
 
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
 
@@ -396,7 +396,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-              {state.gastosFijos.map((f, i) => {
+              {state.gastosFijos.map((f) => {
                 const dias = diasPara(f.dia);
                 const urgente = dias !== null && dias <= 7;
                 return (

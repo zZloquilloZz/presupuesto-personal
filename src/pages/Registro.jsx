@@ -45,9 +45,6 @@ function PagosFijosPanel({ state, dispatch }) {
   const [error, setError] = useState("");
   const sf = (k,v) => setForm(f=>({...f,[k]:v}));
 
-  const getCat = id => categorias.find(c=>c.id===id) || categorias[categorias.length-1];
-  const getMet = id => metodos.find(m=>m.id===id)    || metodos[0];
-
   const handleAdd = () => {
     if (!form.descripcion.trim()) return setError("Ingresa una descripción");
     if (!form.monto || parseFloat(form.monto) <= 0) return setError("Ingresa un monto válido");

@@ -8,7 +8,7 @@ import { useApp, useGastosMes } from "../context/AppContext";
 
 import { fmt } from "../utils";
 import { CATEGORIAS_FALLBACK } from "../constants";
-import { Card, SectionTitle, KPICard, PageHeader, ChartTooltip, ProgressBar, Btn } from "../components/UI";
+import { Card, SectionTitle, KPICard, PageHeader, ChartTooltip, ProgressBar } from "../components/UI";
 
 export default function Presupuesto() {
   const { state, dispatch } = useApp();
