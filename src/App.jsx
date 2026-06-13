@@ -5,14 +5,17 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AppProvider, useApp } from "./context/AppContext";
 import Sidebar     from "./components/Sidebar";
 import Login       from "./pages/Login";
-import Onboarding  from "./pages/Onboarding";
-import Dashboard   from "./pages/Dashboard";
-import Registro    from "./pages/Registro";
-import Presupuesto from "./pages/Presupuesto";
-import Tarjetas    from "./pages/Tarjetas";
-import Ingresos    from "./pages/Ingresos";
-import Deudas      from "./pages/Deudas";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+
+// Páginas con lazy load: cada una en su propio chunk.
+// Recharts (pesado) sólo se descarga al abrir Dashboard.
+const Onboarding  = lazy(() => import("./pages/Onboarding"));
+const Dashboard   = lazy(() => import("./pages/Dashboard"));
+const Registro    = lazy(() => import("./pages/Registro"));
+const Presupuesto = lazy(() => import("./pages/Presupuesto"));
+const Tarjetas    = lazy(() => import("./pages/Tarjetas"));
+const Ingresos    = lazy(() => import("./pages/Ingresos"));
+const Deudas      = lazy(() => import("./pages/Deudas"));
 
 const PAGES = {
   dashboard:   Dashboard,
@@ -51,7 +54,11 @@ function AppShellInner({ logout, userEmail }) {
   }, [state.errorMsg]);
 
   if (state.loading) return <LoadingScreen text="Cargando datos..." />;
-  if (!state.config?.afpId) return <Onboarding />;
+  if (!state.config?.afpId) return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Onboarding />
+    </Suspense>
+  );
 
   const PageComponent = PAGES[page] || Dashboard;
   return (
@@ -70,7 +77,9 @@ function AppShellInner({ logout, userEmail }) {
       {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
 
       <main className="main-content">
-        <PageComponent />
+        <Suspense fallback={<LoadingScreen />}>
+          <PageComponent />
+        </Suspense>
       </main>
       {state.errorMsg && (
         <div style={{
