@@ -1,8 +1,9 @@
 // Registro de gastos — formulario adaptado al schema normalizado 3FN
 // categoriaId/metodoId/tarjetaId en lugar de strings libres
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { useNav } from "../context/NavContext";
 import { CATEGORIAS_FALLBACK, METODOS_FALLBACK } from "../constants";
 import { fmt, uid, fechaLegible } from "../utils";
 import { Card, SectionTitle, KPICard, Btn, Field, EmptyState, Badge, PageHeader, ProgressBar } from "../components/UI";
@@ -153,6 +154,7 @@ function PagosFijosPanel({ state, dispatch }) {
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function Registro() {
   const { state, dispatch } = useApp();
+  const { params } = useNav();
 
   const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
   const metodos    = state.metodos.length    ? state.metodos    : METODOS_FALLBACK;
@@ -167,6 +169,14 @@ export default function Registro() {
   const [tabVista, setTabVista]   = useState("gastos");
 
   const sf = (k, v) => { setForm(f=>({...f,[k]:v})); setErrors(e=>({...e,[k]:null})); };
+
+  // Drill-down: aplica filtros/pestaña recibidos al navegar desde otra pantalla
+  useEffect(() => {
+    if (!params) return;
+    if (params.tab) setTabVista(params.tab);
+    if (params.categoria) { setTabVista("gastos"); setFiltroCat(params.categoria); }
+    if (params.mes) setFiltroMes(params.mes);
+  }, [params]);
 
   // Tarjeta activa seleccionada
   const tarjetaActiva = form.tarjetaId

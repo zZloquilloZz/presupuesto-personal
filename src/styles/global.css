@@ -97,6 +97,28 @@ button { cursor: pointer; font-family: var(--font-mono); }
 /* Inputs ya tienen su propio anillo de foco: evitar doble outline */
 input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
 
+/* ── KPI INTERACTIVO ── */
+.kpi-clickable {
+  cursor: pointer;
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.kpi-clickable:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-light);
+  box-shadow: 0 6px 20px #0005;
+}
+.kpi-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity .15s ease, transform .15s ease;
+  color: var(--text-secondary);
+}
+.kpi-clickable:hover .kpi-arrow { opacity: 1; transform: translateX(0); }
+
+/* Fila clickable genérica (listas con drill-down) */
+.row-clickable { cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.row-clickable:hover { background: var(--bg-hover) !important; }
+
 /* ── ANIMATIONS ── */
 /* Curva de animacion personalizada para sensacion premium */
 @keyframes fadeUp   { from { opacity:0; transform:translateY(12px) }  to { opacity:1; transform:translateY(0) } }

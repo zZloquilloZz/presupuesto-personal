@@ -10,7 +10,7 @@
 //   Field, EmptyState, ProgressBar, ChartTooltip
 //   PageHeader, NumberStepper
 // ─────────────────────────────────────────────────────
-import { cloneElement, isValidElement, useId } from "react";
+import { cloneElement, isValidElement, useId, useState } from "react";
 import { fmt } from "../utils";
 
 // ── CARD ──
@@ -46,19 +46,32 @@ export function SectionTitle({ children, color, style }) {
 }
 
 // ── KPI CARD ──
-export function KPICard({ label, value, sub, subColor, bg, border, valueColor, delay = 0 }) {
+// Si recibe onClick se vuelve interactivo (cursor, hover, accesible por teclado)
+export function KPICard({ label, value, sub, subColor, bg, border, valueColor, delay = 0, onClick }) {
+  const clickable = typeof onClick === "function";
   return (
-    <div className="fade-up" style={{
-      background: bg || "var(--bg-input)",
-      border: `1px solid ${border || "var(--border-light)"}`,
-      borderRadius: 10, padding: "14px 16px",
-      animationDelay: `${delay}s`,
-    }}>
+    <div
+      className={"fade-up kpi" + (clickable ? " kpi-clickable" : "")}
+      onClick={onClick}
+      role={clickable ? "button" : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={clickable ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      style={{
+        background: bg || "var(--bg-input)",
+        border: `1px solid ${border || "var(--border-light)"}`,
+        borderRadius: 10, padding: "14px 16px",
+        animationDelay: `${delay}s`,
+      }}
+    >
       <div style={{
         fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 700,
         color: "var(--text-dim)", textTransform: "uppercase",
         letterSpacing: "0.13em", marginBottom: 8,
-      }}>{label}</div>
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <span>{label}</span>
+        {clickable && <span className="kpi-arrow" aria-hidden="true">→</span>}
+      </div>
       <div className="count-up" style={{
         fontFamily: "var(--font-mono)", fontSize: 18, fontWeight: 500,
         color: valueColor || "var(--text-primary)",
@@ -72,6 +85,46 @@ export function KPICard({ label, value, sub, subColor, bg, border, valueColor, d
         }}>{sub}</div>
       )}
     </div>
+  );
+}
+
+// ── COLLAPSIBLE ──
+// Sección expandible/colapsable con encabezado clickable. `defaultOpen`
+// controla el estado inicial. Útil para esconder detalle y reducir saturación.
+export function Collapsible({ title, subtitle, accentColor, defaultOpen = false, right, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Card style={{ padding: 0, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 10,
+          padding: "14px 18px", background: "none", border: "none",
+          cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span style={{
+          color: accentColor || "var(--text-dim)", fontFamily: "var(--font-mono)",
+          fontSize: 12, transition: "transform .2s",
+          transform: open ? "rotate(90deg)" : "rotate(0deg)",
+        }} aria-hidden="true">▶</span>
+        <span style={{ flex: 1 }}>
+          <span style={{
+            display: "block", fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 700,
+            letterSpacing: "0.13em", textTransform: "uppercase",
+            color: accentColor || "var(--text-dim)",
+          }}>{title}</span>
+          {subtitle && <span style={{ display: "block", fontSize: 9, color: "var(--text-ghost)", marginTop: 2 }}>{subtitle}</span>}
+        </span>
+        {right}
+      </button>
+      {open && (
+        <div className="fade-in" style={{ padding: "0 18px 18px" }}>
+          {children}
+        </div>
+      )}
+    </Card>
   );
 }
 

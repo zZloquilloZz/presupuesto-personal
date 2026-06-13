@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from "react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useApp, useGastosMes, useIngresoDisponible } from "../context/AppContext";
+import { useNav } from "../context/NavContext";
 import { CATEGORIAS_FALLBACK, EMAILJS, MESES } from "../constants";
 import { fmt, diasPara, agruparPorCategoria } from "../utils";
 import { KPICard, Card, SectionTitle, ChartTooltip, PageHeader } from "../components/UI";
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const ejsRef = useRef(false);
 
   const { state } = useApp();
+  const { go } = useNav();
   const gastosMes = useGastosMes();
   const ingresoAnterior = useIngresoDisponible();
 
@@ -60,7 +62,6 @@ export default function Dashboard() {
   // Grafico de torta — solo gastos del mes actual
   const categorias = state.categorias.length ? state.categorias : CATEGORIAS_FALLBACK;
   const pieData = agruparPorCategoria(gastosMes, categorias);
-  const catTop  = [...pieData].sort((a,b) => b.total - a.total)[0];
 
   // Historial de 7 meses (4 anteriores + actual + 2 siguientes si hay datos)
   // Ingreso de mes X se muestra en mes X+1 (porque se cobra en X+1)
@@ -176,28 +177,28 @@ export default function Dashboard() {
 
       <div className="page-container">
         {/* KPIs principales */}
-        <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12 }}>
+        <div className="grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12 }}>
           <KPICard
             label="Ingresos del mes"
             value={hayIngresos ? `S/. ${fmt(ingresoBase)}` : "Sin registrar"}
             valueColor={hayIngresos ? "var(--green)" : "var(--text-ghost)"}
             bg={hayIngresos ? "var(--green-bg)" : "var(--bg-input)"}
             border={hayIngresos ? "var(--green-border)" : "var(--border)"}
-            sub={!hayIngresos ? "→ Ve a Ingresos" : `Ingreso de ${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][mesRef]}`}
+            sub={!hayIngresos ? "Ve a Ingresos" : `Ingreso de ${["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Set","Oct","Nov","Dic"][mesRef]}`}
             delay={0}
+            onClick={() => go("ingresos")}
           />
-          <KPICard label="Gastos variables"   value={`S/. ${fmt(totalGastos)}`}  valueColor="var(--text-primary)" delay={0.06}/>
-          <KPICard label="Compromisos fijos"  value={`S/. ${fmt(totalFijos)}`}   valueColor="var(--yellow)" bg="var(--yellow-bg)" border="var(--yellow-border)" sub={(state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length) > 0 ? `${state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length} compromisos` : "Sin configurar aun"} delay={0.12}/>
-          <KPICard label="Total egresos"      value={`S/. ${fmt(totalGastos + totalFijos)}`} valueColor={hayIngresos && totalGastos + totalFijos > ingresoBase ? "var(--red)" : "var(--text-primary)"} delay={0.18}/>
+          <KPICard label="Gastos variables"   value={`S/. ${fmt(totalGastos)}`}  valueColor="var(--text-primary)" sub="Ver movimientos" delay={0.06} onClick={() => go("registro")}/>
+          <KPICard label="Compromisos fijos"  value={`S/. ${fmt(totalFijos)}`}   valueColor="var(--yellow)" bg="var(--yellow-bg)" border="var(--yellow-border)" sub={(state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length) > 0 ? `${state.gastosFijos.length + (state.deudas||[]).filter(d=>d.cuotaMensual>0).length} compromisos` : "Sin configurar aun"} delay={0.12} onClick={() => go("registro", { tab: "fijos" })}/>
           <KPICard
             label="Saldo disponible"
             value={hayIngresos ? `S/. ${fmt(Math.abs(saldo))}` : "—"}
             valueColor={!hayIngresos ? "var(--text-ghost)" : saldo >= 0 ? "var(--green)" : "var(--red)"}
             bg={!hayIngresos ? "var(--bg-input)" : saldo >= 0 ? "var(--green-bg)" : "var(--red-bg)"}
             border={!hayIngresos ? "var(--border)" : saldo >= 0 ? "var(--green-border)" : "var(--red-border)"}
-            sub={hayIngresos ? `${saldo >= 0 ? "Ahorro" : "Deficit"} ${tasaAhorro.toFixed(1)}%` : "Registra tu ingreso"}
+            sub={hayIngresos ? `${saldo >= 0 ? "Ahorro" : "Deficit"} ${tasaAhorro.toFixed(1)}% · egresos S/. ${fmt(totalGastos + totalFijos)}` : "Registra tu ingreso"}
             subColor={!hayIngresos ? "var(--text-ghost)" : saldo >= 0 ? "var(--green)" : "var(--red)"}
-            delay={0.24}
+            delay={0.18}
           />
         </div>
 
@@ -247,11 +248,10 @@ export default function Dashboard() {
                     <div style={{ fontSize:9, color:"var(--text-dim)", fontFamily:"var(--font-sans)" }}>dias restantes</div>
                   </div>
                 </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:12 }}>
                   {[
                     { l:"Cierre ciclo",   v:`Dia ${t.cierre}`,  c:"var(--text-secondary)" },
                     { l:"Limite pago",    v:`Dia ${t.pagoDia}`, c:t.color },
-                    { l:"Cuotas activas", v:`${cuotasT.length} cuotas`, c:"var(--text-secondary)" },
                   ].map((d,i) => (
                     <div key={i} style={{ background:"var(--bg-input)", borderRadius:"var(--radius-sm)", padding:"9px 10px" }}>
                       <div style={{ fontSize:8, color:"var(--text-dim)", fontFamily:"var(--font-sans)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>{d.l}</div>
@@ -341,15 +341,17 @@ export default function Dashboard() {
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ flex:1, display:"flex", flexDirection:"column", gap:6 }}>
+                <div style={{ flex:1, display:"flex", flexDirection:"column", gap:2 }}>
                   {[...pieData].sort((a,b) => b.total - a.total).map((d,i) => (
-                    <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <div style={{ width:7, height:7, borderRadius:"50%", background:d.color, flexShrink:0 }}/>
+                    <button key={i} className="row-clickable" onClick={() => go("registro", { categoria: d.id })}
+                      title={`Ver gastos de ${d.label}`}
+                      style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, background:"none", border:"none", borderRadius:"var(--radius-sm)", padding:"5px 7px", width:"100%", textAlign:"left" }}>
+                      <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+                        <span style={{ width:7, height:7, borderRadius:"50%", background:d.color, flexShrink:0, display:"inline-block" }}/>
                         <span style={{ fontSize:10, color:"var(--text-secondary)", fontFamily:"var(--font-sans)" }}>{d.label}</span>
-                      </div>
+                      </span>
                       <span style={{ fontSize:10, color:"var(--text-primary)", fontFamily:"var(--font-mono)" }}>S/. {fmt(d.total)}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -432,57 +434,23 @@ export default function Dashboard() {
           )}
         </Card>
 
-        {/* Metodo pago + insights */}
-        <Card>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:20 }}>
-            <div>
-              <SectionTitle>Metodo de pago</SectionTitle>
-              {!hayGastos ? (
-                <div style={{ fontSize:10, color:"var(--text-ghost)", paddingTop:6 }}>Sin gastos registrados</div>
-              ) : (
-                <>
-                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:"var(--text-secondary)", marginBottom:6 }}>
-                    <span>Credito</span><span>Debito</span>
-                  </div>
-                  <div style={{ height:8, background:"var(--border)", borderRadius:4, overflow:"hidden", display:"flex" }}>
-                    <div style={{ width:`${(totalCredito / (totalGastos || 1) * 100).toFixed(1)}%`, background:"linear-gradient(90deg,#0EA5E9,#38BDF8)", borderRadius:"4px 0 0 4px" }}/>
-                    <div style={{ flex:1, background:"linear-gradient(90deg,#4ADE8088,#4ADE80)", borderRadius:"0 4px 4px 0" }}/>
-                  </div>
-                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, marginTop:6 }}>
-                    <span style={{ color:"var(--blue)", fontFamily:"var(--font-mono)" }}>S/. {fmt(totalCredito)}</span>
-                    <span style={{ color:"var(--green)", fontFamily:"var(--font-mono)" }}>S/. {fmt(totalDebito)}</span>
-                  </div>
-                </>
-              )}
+        {/* Metodo de pago del mes */}
+        {hayGastos && (
+          <Card>
+            <SectionTitle>Metodo de pago este mes</SectionTitle>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:"var(--text-secondary)", marginBottom:6 }}>
+              <span>Credito</span><span>Debito</span>
             </div>
-            <div>
-              <SectionTitle>Mayor categoria</SectionTitle>
-              {catTop ? (
-                <>
-                  <div style={{ fontFamily:"var(--font-mono)", fontSize:15, color:"var(--orange)", marginBottom:3 }}>{catTop.label}</div>
-                  <div style={{ fontSize:10, color:"var(--text-dim)" }}>S/. {fmt(catTop.total)}</div>
-                </>
-              ) : (
-                <div style={{ fontSize:10, color:"var(--text-ghost)", paddingTop:6 }}>Sin datos aun</div>
-              )}
+            <div style={{ height:8, background:"var(--border)", borderRadius:4, overflow:"hidden", display:"flex" }}>
+              <div style={{ width:`${(totalCredito / (totalGastos || 1) * 100).toFixed(1)}%`, background:"linear-gradient(90deg,#0EA5E9,#38BDF8)", borderRadius:"4px 0 0 4px" }}/>
+              <div style={{ flex:1, background:"linear-gradient(90deg,#4ADE8088,#4ADE80)", borderRadius:"0 4px 4px 0" }}/>
             </div>
-            <div>
-              <SectionTitle>Tasa de ahorro</SectionTitle>
-              {!hayIngresos ? (
-                <div style={{ fontSize:10, color:"var(--text-ghost)", paddingTop:6 }}>Registra tu ingreso para calcular</div>
-              ) : (
-                <>
-                  <div style={{ fontFamily:"var(--font-mono)", fontSize:22, color: tasaAhorro >= 20 ? "var(--green)" : tasaAhorro >= 10 ? "var(--yellow)" : "var(--red)" }}>
-                    {tasaAhorro.toFixed(1)}%
-                  </div>
-                  <div style={{ fontSize:10, color:"var(--text-dim)", marginTop:3 }}>
-                    {tasaAhorro >= 20 ? "Excelente" : tasaAhorro >= 10 ? "Aceptable" : "Mejorable"}
-                  </div>
-                </>
-              )}
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, marginTop:6 }}>
+              <span style={{ color:"var(--blue)", fontFamily:"var(--font-mono)" }}>S/. {fmt(totalCredito)}</span>
+              <span style={{ color:"var(--green)", fontFamily:"var(--font-mono)" }}>S/. {fmt(totalDebito)}</span>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AppProvider, useApp } from "./context/AppContext";
+import { NavProvider } from "./context/NavContext";
 import Sidebar     from "./components/Sidebar";
 import Login       from "./pages/Login";
 import { useState, useEffect, lazy, Suspense } from "react";
@@ -36,11 +37,12 @@ function LoadingScreen({ text = "Cargando..." }) {
 
 function AppShellInner({ logout, userEmail }) {
   const { state, dispatch } = useApp();
-  const [page, setPage] = useState("dashboard");
+  const [nav, setNav] = useState({ page: "dashboard", params: null });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const page = nav.page;
 
-  // Navegar cierra el drawer en móvil
-  const navegar = (id) => { setPage(id); setSidebarOpen(false); };
+  // Navegar (con params opcionales para drill-down) y cerrar el drawer en móvil
+  const go = (id, params = null) => { setNav({ page: id, params }); setSidebarOpen(false); };
 
   const afpInfo  = state.afps?.find(a => a.id === state.config?.afpId);
   const afpLabel = afpInfo?.label ?? null;
@@ -62,8 +64,9 @@ function AppShellInner({ logout, userEmail }) {
 
   const PageComponent = PAGES[page] || Dashboard;
   return (
+    <NavProvider go={go} page={page} params={nav.params}>
     <div className="app-layout">
-      <Sidebar activePage={page} onNavigate={navegar} onLogout={logout} userEmail={userEmail} afpLabel={afpLabel} afpTasa={afpTasa} open={sidebarOpen} />
+      <Sidebar activePage={page} onNavigate={go} onLogout={logout} userEmail={userEmail} afpLabel={afpLabel} afpTasa={afpTasa} open={sidebarOpen} />
 
       {/* Topbar móvil — solo visible <768px vía CSS */}
       <header className="topbar">
@@ -99,6 +102,7 @@ function AppShellInner({ logout, userEmail }) {
         </div>
       )}
     </div>
+    </NavProvider>
   );
 }
 
