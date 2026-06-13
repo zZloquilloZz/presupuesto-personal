@@ -52,12 +52,6 @@ function CronogramaCard({ tarjeta, cuotas, gastos }) {
         </div>
       </div>
 
-      {tarjeta.cierre && (
-        <div style={{ fontSize:9, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", marginBottom:10, padding:"6px 10px", background:"var(--bg-input)", borderRadius:"var(--radius-sm)" }}>
-          Cierre día {tarjeta.cierre} — Pago día <span style={{ color:tarjeta.color, fontWeight:700 }}>{tarjeta.pagoDia}</span>
-        </div>
-      )}
-
       {gastosDelMes.length===0&&cuotasDelMes.length===0 ? (
         <div style={{ fontSize:9, color:"var(--text-ghost)", textAlign:"center", padding:"14px 0", fontFamily:"var(--font-sans)" }}>Sin compras registradas en este ciclo</div>
       ) : (

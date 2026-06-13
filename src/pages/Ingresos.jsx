@@ -336,9 +336,8 @@ export default function Ingresos() {
                 </ResponsiveContainer>
               )}
 
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginTop:12 }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginTop:12 }}>
                 {[
-                  { l:"Promedio neto",  v:`S/. ${fmt(promedioNeto)}`, c:"var(--text-muted)" },
                   { l:"Mejor mes",      v: mejorMes ? MESES[mejorMes.mesIdx] : "—", c:"var(--green)" },
                   { l:`Total ${ANIO_HOY}`, v:`S/. ${fmt(totalAnio)}`, c:"var(--blue)" },
                 ].map((s,i) => (
@@ -350,49 +349,24 @@ export default function Ingresos() {
               </div>
             </Card>
 
-            {/* AFP info — dinámica según la AFP configurada */}
-            <Card style={{ borderColor: afpLabel ? "var(--red-border)" : "var(--border)" }}>
-              <SectionTitle color={afpLabel ? "var(--red)" : "var(--text-dim)"}>
-                {afpLabel ? `${afpLabel} — Descuento en boleta` : "AFP — Sin configurar"}
-              </SectionTitle>
-              {afpLabel ? (
-                <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", paddingBottom:9, borderBottom:"1px solid var(--border)" }}>
-                    <div>
-                      <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>Tasa total de descuento</div>
-                      <div style={{ fontSize:8, color:"var(--text-ghost)", marginTop:1 }}>Se descuenta del sueldo bruto cada mes</div>
-                    </div>
-                    <span style={{ fontFamily:"var(--font-mono)", fontSize:14, color:"var(--red)", fontWeight:500 }}>{afpTasa}%</span>
-                  </div>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                    <div>
-                      <div style={{ fontSize:10, color:"var(--text-muted)", fontFamily:"var(--font-sans)" }}>Descuento mensual estimado</div>
-                      <div style={{ fontSize:8, color:"var(--text-ghost)", marginTop:1 }}>Sobre haber básico + asig. familiar</div>
-                    </div>
-                    <span style={{ fontFamily:"var(--font-mono)", fontSize:12, color:"var(--red)" }}>S/. {fmt(preview.bruto * afpTasa / 100)}</span>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ fontSize:10, color:"var(--text-ghost)", fontFamily:"var(--font-sans)", padding:"8px 0" }}>
-                  Usa el botón "Cambiar AFP" de arriba para configurar tu sistema previsional.
-                </div>
-              )}
-            </Card>
-
             {/* Lista registros */}
             {historial.length > 0 && (
               <Card>
                 <SectionTitle>Meses registrados</SectionTitle>
                 <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:220, overflowY:"auto" }}>
-                  {[...historial].reverse().map((h,i)=>(
-                    <div key={i} onClick={()=>cargarMes(h.mesIdx,h.anio)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 12px", background:h.mesIdx===mesIdx&&h.anio===anio?"var(--bg-hover)":"var(--bg-input)", border:`1px solid ${h.mesIdx===mesIdx&&h.anio===anio?"var(--blue)":"var(--border)"}`, borderRadius:"var(--radius-sm)", cursor:"pointer", transition:"all .15s" }}>
-                      <div>
-                        <div style={{ fontFamily:"var(--font-sans)", fontSize:11, fontWeight:600, color:"var(--text-primary)" }}>{MESES[h.mesIdx]} {h.anio}</div>
-                        <div style={{ fontSize:9, color:"var(--text-dim)", marginTop:1 }}>Bruto S/. {fmt(h.bruto)} — AFP S/. {fmt(h.afp)}</div>
-                      </div>
-                      <div style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--green)" }}>S/. {fmt(h.neto)}</div>
-                    </div>
-                  ))}
+                  {[...historial].reverse().map((h,i)=>{
+                    const sel = h.mesIdx===mesIdx&&h.anio===anio;
+                    return (
+                    <button key={i} className="row-clickable" onClick={()=>cargarMes(h.mesIdx,h.anio)}
+                      style={{ display:"flex", justifyContent:"space-between", alignItems:"center", width:"100%", textAlign:"left", padding:"9px 12px", background:sel?"var(--bg-hover)":"var(--bg-input)", border:`1px solid ${sel?"var(--blue)":"var(--border)"}`, borderRadius:"var(--radius-sm)", cursor:"pointer" }}>
+                      <span>
+                        <span style={{ display:"block", fontFamily:"var(--font-sans)", fontSize:11, fontWeight:600, color:"var(--text-primary)" }}>{MESES[h.mesIdx]} {h.anio}</span>
+                        <span style={{ display:"block", fontSize:9, color:"var(--text-dim)", marginTop:1 }}>Bruto S/. {fmt(h.bruto)} — AFP S/. {fmt(h.afp)}</span>
+                      </span>
+                      <span style={{ fontFamily:"var(--font-mono)", fontSize:13, color:"var(--green)" }}>S/. {fmt(h.neto)}</span>
+                    </button>
+                    );
+                  })}
                 </div>
               </Card>
             )}
