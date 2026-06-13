@@ -43,12 +43,13 @@ export default function Sidebar({ activePage, onNavigate, onLogout, userEmail, a
         </div>
 
         {/* Nav */}
-        <nav style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:3, overflowY:"auto" }}>
+        <nav aria-label="Navegación principal" style={{ flex:1, padding:"10px 8px", display:"flex", flexDirection:"column", gap:3, overflowY:"auto" }}>
           {NAV_ITEMS.map(item => {
             const active = activePage === item.id;
             return (
               <button key={item.id}
                 onClick={() => onNavigate(item.id)}
+                aria-current={active ? "page" : undefined}
                 style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "10px 10px",

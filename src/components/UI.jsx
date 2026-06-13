@@ -10,6 +10,7 @@
 //   Field, EmptyState, ProgressBar, ChartTooltip
 //   PageHeader, NumberStepper
 // ─────────────────────────────────────────────────────
+import { cloneElement, isValidElement, useId } from "react";
 import { fmt } from "../utils";
 
 // ── CARD ──
@@ -124,9 +125,9 @@ export function Btn({ children, onClick, variant = "default", size = "md", disab
 }
 
 // ── LABEL ──
-export function Label({ children, color, style }) {
+export function Label({ children, color, style, htmlFor }) {
   return (
-    <label style={{
+    <label htmlFor={htmlFor} style={{
       fontSize: 9, fontWeight: 700,
       letterSpacing: "0.12em", textTransform: "uppercase",
       color: color || "var(--text-muted)",
@@ -140,11 +141,19 @@ export function Label({ children, color, style }) {
 }
 
 // ── FORM FIELD ──
+// Asocia el <label> con el control vía htmlFor/id para lectores de pantalla.
 export function Field({ label, error, children, labelColor }) {
+  const autoId = useId();
+  // Inyecta id en el control hijo (si es un único elemento) para vincular el label
+  const esElemento = isValidElement(children);
+  const inputId = esElemento ? (children.props.id || autoId) : undefined;
+  const control = esElemento && !children.props.id
+    ? cloneElement(children, { id: inputId })
+    : children;
   return (
     <div>
-      {label && <Label color={labelColor}>{label}</Label>}
-      {children}
+      {label && <Label color={labelColor} htmlFor={inputId}>{label}</Label>}
+      {control}
       {error && (
         <div style={{ fontSize: 10, color: "var(--red)", marginTop: 3 }}>* {error}</div>
       )}
@@ -235,12 +244,12 @@ export function PageHeader({ title, accentColor, children }) {
 export function NumberStepper({ value, onChange, min = 0, step = 1, color }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <button onClick={() => onChange(Math.max(min, (parseFloat(value)||0) - step))}
+      <button type="button" aria-label="Disminuir" onClick={() => onChange(Math.max(min, (parseFloat(value)||0) - step))}
         style={{ width:26, height:26, borderRadius:5, background:"var(--border)", border:"none", color:"var(--text-secondary)", fontSize:14, cursor:"pointer" }}>-</button>
       <input type="number" min={min} step={step} value={value}
         onChange={e => onChange(Math.max(min, parseFloat(e.target.value)||0))}
         style={{ textAlign:"center", width:70, border:`1px solid ${color ? color+"44":"var(--border)"}`, color: color||"var(--text-primary)", fontSize:16 }}/>
-      <button onClick={() => onChange((parseFloat(value)||0) + step)}
+      <button type="button" aria-label="Aumentar" onClick={() => onChange((parseFloat(value)||0) + step)}
         style={{ width:26, height:26, borderRadius:5, background:"var(--border)", border:"none", color:"var(--text-secondary)", fontSize:14, cursor:"pointer" }}>+</button>
     </div>
   );

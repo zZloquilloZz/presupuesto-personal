@@ -88,6 +88,15 @@ input[type=number]::-webkit-inner-spin-button { opacity: .4; }
 /* ── BUTTONS ── */
 button { cursor: pointer; font-family: var(--font-mono); }
 
+/* ── FOCUS VISIBLE (navegación por teclado) ── */
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+/* Inputs ya tienen su propio anillo de foco: evitar doble outline */
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
+
 /* ── ANIMATIONS ── */
 /* Curva de animacion personalizada para sensacion premium */
 @keyframes fadeUp   { from { opacity:0; transform:translateY(12px) }  to { opacity:1; transform:translateY(0) } }

@@ -82,7 +82,7 @@ function AppShellInner({ logout, userEmail }) {
         </Suspense>
       </main>
       {state.errorMsg && (
-        <div style={{
+        <div role="alert" aria-live="assertive" style={{
           position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
           background: "var(--red-bg)", border: "1px solid var(--red)",
           borderRadius: "var(--radius-md)", padding: "12px 20px",
@@ -90,9 +90,9 @@ function AppShellInner({ logout, userEmail }) {
           fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--red)",
           boxShadow: "0 4px 24px #0006", zIndex: 9999, maxWidth: 420,
         }}>
-          <span style={{ fontWeight: 700 }}>⚠</span>
+          <span style={{ fontWeight: 700 }} aria-hidden="true">⚠</span>
           <span style={{ flex: 1 }}>{state.errorMsg}</span>
-          <button onClick={() => dispatch({ type: "CLEAR_ERROR" })} style={{
+          <button onClick={() => dispatch({ type: "CLEAR_ERROR" })} aria-label="Cerrar" style={{
             background: "none", border: "none", color: "var(--red)",
             cursor: "pointer", fontSize: 14, padding: "0 2px", lineHeight: 1,
           }}>✕</button>
