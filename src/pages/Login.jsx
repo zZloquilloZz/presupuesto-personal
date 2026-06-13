@@ -108,46 +108,48 @@ export default function Login() {
         )}
 
         {/* Campos */}
-        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <form onSubmit={e => { e.preventDefault(); submit(); }} style={{ display:"flex", flexDirection:"column", gap:14 }}>
           <div>
-            <div style={styles.label}>Email</div>
+            <label htmlFor="email" style={styles.label}>Email</label>
             <input
+              id="email"
+              name="email"
               type="email"
               placeholder="tu@email.com"
               value={email}
               onChange={e => { setEmail(e.target.value); setError(null); if (emailConfirmed) setEmailConfirmed(false); }}
-              onKeyDown={e => e.key === "Enter" && submit()}
               style={{ width:"100%", boxSizing:"border-box" }}
-              autoComplete="off"
+              autoComplete="email"
             />
           </div>
           <div>
-            <div style={styles.label}>Contraseña</div>
+            <label htmlFor="password" style={styles.label}>Contraseña</label>
             <input
+              id="password"
+              name="password"
               type="password"
               placeholder={modo === "register" ? "Mínimo 6 caracteres" : "••••••••"}
               value={password}
               onChange={e => { setPassword(e.target.value); setError(null); }}
-              onKeyDown={e => e.key === "Enter" && submit()}
               style={{ width:"100%", boxSizing:"border-box" }}
-              autoComplete="off"
+              autoComplete={modo === "register" ? "new-password" : "current-password"}
             />
           </div>
 
           {/* Error */}
           {error && (
-            <div style={{ background:"var(--red-bg)", border:"1px solid var(--red-border)", borderRadius:"var(--radius-sm)", padding:"9px 12px", fontSize:11, color:"var(--red)", fontFamily:"var(--font-sans)" }}>
+            <div role="alert" style={{ background:"var(--red-bg)", border:"1px solid var(--red-border)", borderRadius:"var(--radius-sm)", padding:"9px 12px", fontSize:11, color:"var(--red)", fontFamily:"var(--font-sans)" }}>
               {error}
             </div>
           )}
 
           {/* Botón */}
-          <button onClick={submit} disabled={loading} style={{ ...styles.btn, opacity: loading ? .6 : 1 }}>
+          <button type="submit" disabled={loading} style={{ ...styles.btn, opacity: loading ? .6 : 1 }}>
             {loading
               ? "..."
               : modo === "login" ? "Entrar" : "Crear cuenta"}
           </button>
-        </div>
+        </form>
 
         {/* Footer */}
         <div style={{ marginTop:20, textAlign:"center", fontSize:9, color:"var(--text-ghost)", lineHeight:1.7 }}>
@@ -177,6 +179,7 @@ const styles = {
     boxShadow: "0 8px 40px #00000044",
   },
   label: {
+    display: "block",
     fontSize: 9,
     color: "var(--text-ghost)",
     fontFamily: "var(--font-sans)",
