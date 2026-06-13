@@ -124,17 +124,48 @@ button { cursor: pointer; font-family: var(--font-mono); }
   gap: 18px;
 }
 
+/* ── TOPBAR MÓVIL (oculta en desktop) ── */
+.topbar {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+  height: 52px; align-items: center; gap: 12px;
+  padding: 0 14px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-title {
+  font-family: var(--font-sans); font-size: 13px; font-weight: 800;
+  color: var(--text-primary);
+}
+.topbar-burger {
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  width: 34px; height: 34px; padding: 8px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.topbar-burger span {
+  display: block; height: 2px; width: 100%;
+  background: var(--text-secondary); border-radius: 2px;
+}
+
+/* Backdrop del drawer */
+.sidebar-backdrop {
+  position: fixed; inset: 0; z-index: 90;
+  background: #0008;
+  animation: fadeIn .2s ease both;
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed !important;
-    z-index: 50 !important;
+    z-index: 100 !important;
     height: 100vh !important;
     transform: translateX(-100%);
     transition: transform .25s ease;
   }
   .sidebar.open { transform: translateX(0) !important; }
-  .main-content  { margin-left: 0 !important; }
+  .main-content  { margin-left: 0 !important; padding-top: 52px; }
   .topbar        { display: flex !important; }
   .page-container { padding: 16px 14px; gap: 14px; }
   .grid-4 { grid-template-columns: repeat(2,1fr) !important; }

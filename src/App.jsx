@@ -34,6 +34,10 @@ function LoadingScreen({ text = "Cargando..." }) {
 function AppShellInner({ logout, userEmail }) {
   const { state, dispatch } = useApp();
   const [page, setPage] = useState("dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Navegar cierra el drawer en móvil
+  const navegar = (id) => { setPage(id); setSidebarOpen(false); };
 
   const afpInfo  = state.afps?.find(a => a.id === state.config?.afpId);
   const afpLabel = afpInfo?.label ?? null;
@@ -52,8 +56,20 @@ function AppShellInner({ logout, userEmail }) {
   const PageComponent = PAGES[page] || Dashboard;
   return (
     <div className="app-layout">
-      <Sidebar activePage={page} onNavigate={setPage} onLogout={logout} userEmail={userEmail} afpLabel={afpLabel} afpTasa={afpTasa} />
-      <main style={{ marginLeft: 215, flex: 1, minHeight: "100vh", overflowY: "auto" }}>
+      <Sidebar activePage={page} onNavigate={navegar} onLogout={logout} userEmail={userEmail} afpLabel={afpLabel} afpTasa={afpTasa} open={sidebarOpen} />
+
+      {/* Topbar móvil — solo visible <768px vía CSS */}
+      <header className="topbar">
+        <button className="topbar-burger" onClick={() => setSidebarOpen(o => !o)} aria-label="Abrir menú" aria-expanded={sidebarOpen}>
+          <span/><span/><span/>
+        </button>
+        <span className="topbar-title">Presupuesto Personal</span>
+      </header>
+
+      {/* Backdrop para cerrar el drawer al tocar fuera */}
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+
+      <main className="main-content">
         <PageComponent />
       </main>
       {state.errorMsg && (

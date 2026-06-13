@@ -11,10 +11,10 @@ const NAV_ITEMS = [
   { id:"deudas",      label:"Deudas",      sub:"Prestamos",            icon:"DEU", color:"#F87171"    },
 ];
 
-export default function Sidebar({ activePage, onNavigate, onLogout, userEmail, afpLabel, afpTasa }) {
+export default function Sidebar({ activePage, onNavigate, onLogout, userEmail, afpLabel, afpTasa, open = false }) {
   return (
     <>
-      <aside style={{
+      <aside className={"sidebar" + (open ? " open" : "")} style={{
         width: 215,
         minWidth: 215,
         backgroundColor: "#0A0C10",
